@@ -6,22 +6,22 @@ import org.springframework.modulith.docs.Documenter;
 
 public class ModularityTests {
 
-    ApplicationModules modules = ApplicationModules.of(RefIqPlatformApplication.class);
+  ApplicationModules modules = ApplicationModules.of(RefIqPlatformApplication.class);
 
 
-    @Test
-    void verifiesModularStructure() {
+  @Test
+  void verifiesModularStructure() {
 
-        modules.verify();
-    }
+    modules.verify();
+  }
 
-    @Test
-    void createModuleDocumentation(){
+  @Test
+  void createModuleDocumentation() {
 
-        new Documenter(modules)
-                .writeDocumentation()
-                .writeIndividualModulesAsPlantUml();
-    }
+    new Documenter(modules)
+        .writeDocumentation()
+        .writeIndividualModulesAsPlantUml();
+  }
 
 
 }
