@@ -49,5 +49,11 @@ logs/
 *.jks
 application-secret.properties
 application-local.properties
+*-local.properties
 # Memory dump
 *.hprof
+
+### IDE & DB Tools Config ###
+.dbeaver/
+.datagrip/
+data-sources.xml
