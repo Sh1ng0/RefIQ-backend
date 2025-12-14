@@ -10,10 +10,21 @@ package com.refiq.platform.auth.api.dto;
  */
 public sealed interface RegistrationResult {
 
+
+  /**
+   * Representa un registro exitoso.
+   *
+   * @param response Los datos de confirmación para el cliente.
+   */
   record Success(RegistrationResponse response) implements RegistrationResult {
 
   }
 
+  /**
+   * Representa un fallo debido a que el email ya existe en el sistema.
+   *
+   * @param email El email que causó el conflicto.
+   */
   record EmailAlreadyExists(String email) implements RegistrationResult {
 
   }

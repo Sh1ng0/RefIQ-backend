@@ -23,6 +23,7 @@ class SecurityConfig {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/register").permitAll()
+            .requestMatchers("/api/ingestion/**").permitAll() // Tener en cuenta para security en el futuro, this is open
             .anyRequest().authenticated()
         );
 

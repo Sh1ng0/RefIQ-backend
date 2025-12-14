@@ -1,0 +1,32 @@
+services:
+  # --- Base de Datos (Ya la usabas para Auth) ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: refiq-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=refiq_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # --- AWS Simulator (S3) ---
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: refiq-localstack
+    ports:
+      - "4566:4566"            # Gateway único de LocalStack
+    environment:
+      - SERVICES=s3            # Solo levantamos S3 para ahorrar recursos
+      - DEBUG=1                # Ver logs detallados si algo falla
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      # Montamos el script de inicialización para que cree el bucket solo
+      - ./docker/init-localstack:/etc/localstack/init/ready.d
+      - localstack_data:/var/lib/localstack
+
+volumes:
+  postgres_data:
+  localstack_data:
