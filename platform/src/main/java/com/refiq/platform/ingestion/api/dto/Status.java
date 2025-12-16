@@ -4,4 +4,5 @@ public enum Status {
 
   UPLOADED,
   PENDING_RESULT,
+  PENDING_PROCESSING
 }

@@ -1,5 +1,28 @@
 services:
-  # --- Base de Datos (Ya la usabas para Auth) ---
+  # --- TU APP (NUEVO) ---
+  app:
+    build: .
+    container_name: refiq-app
+    ports:
+      - "8080:8080" # Container / Windows
+    environment:
+      # Sobrescribimos la config para que funcione DENTRO de la red Docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://refiq-postgres:5432/refiq_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      # Configuración S3 apuntando al contenedor vecino, NO a localhost
+      - REFIQ_STORAGE_S3_ENDPOINT=http://refiq-localstack:4566
+      - REFIQ_STORAGE_S3_REGION=us-east-1
+      - REFIQ_STORAGE_S3_BUCKET_NAME=refiq-clinical-data-dev
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+
+      - SPRING_PROFILES_ACTIVE=dev
+    depends_on:
+      - postgres
+      - localstack
+
+  # --- Base de Datos ---
   postgres:
     image: postgres:15-alpine
     container_name: refiq-postgres
@@ -17,13 +40,12 @@ services:
     image: localstack/localstack:3.0
     container_name: refiq-localstack
     ports:
-      - "4566:4566"            # Gateway único de LocalStack
+      - "4566:4566"
     environment:
-      - SERVICES=s3            # Solo levantamos S3 para ahorrar recursos
-      - DEBUG=1                # Ver logs detallados si algo falla
+      - SERVICES=s3
+      - DEBUG=1
       - AWS_DEFAULT_REGION=us-east-1
     volumes:
-      # Montamos el script de inicialización para que cree el bucket solo
       - ./docker/init-localstack:/etc/localstack/init/ready.d
       - localstack_data:/var/lib/localstack
 

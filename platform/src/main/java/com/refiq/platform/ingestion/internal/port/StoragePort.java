@@ -2,6 +2,7 @@ package com.refiq.platform.ingestion.internal.port;
 
 
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
+import java.util.Map;
 
 /**
  * Puerto de salida (Output Port) para la persistencia de archivos.
@@ -19,5 +20,18 @@ public interface StoragePort {
    * @return El identificador o ruta final en el storage (ej. S3 Key o ETag).
    */
   String upload(IngestionFile file, String uniqueKey);
+
+
+  // --- Métodos para Multipart Upload (Para archivos grandes / Streaming) ---
+
+  String initMultipartUpload(String key, String contentType);
+
+
+  String uploadPart (String key, String uploadId, int partNumber, byte[] payload);
+
+
+  void completeMultipartUpload(String key, String uploadId, Map<Integer, String> completedParts);
+
+  void abortMultipartUpload (String key, String uploadId);
 
 }

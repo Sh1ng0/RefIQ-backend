@@ -7,22 +7,23 @@ import java.util.Objects;
 /**
  * Representación agnóstica de un archivo dentro del dominio de Ingesta.
  * <p>
- * Desacopla la lógica de negocio de la infraestructura web (MultipartFile).
- * Al ser un Record, es inmutable y transparente.
+ * Desacopla la lógica de negocio de la infraestructura web (MultipartFile). Al ser un Record, es
+ * inmutable y transparente.
  *
- * @param filename Nombre original del archivo (para trazabilidad).
- * @param content  Stream de datos (para no cargar todo en memoria RAM).
- * @param size     Tamaño en bytes (para validaciones o métricas).
+ * @param filename    Nombre original del archivo (para trazabilidad).
+ * @param content     Stream de datos (para no cargar todo en memoria RAM).
+ * @param size        Tamaño en bytes (para validaciones o métricas).
  * @param contentType Tipo MIME (para validación de formato CSV).
  */
 public record IngestionFile(
     String filename,
     InputStream content,
     long size,
-    String contentType
+    String contentType,
+    Runnable cleanupCallback  // This closes the temporal file
 ) {
 
-  // Constructor compacto para validaciones de invariantes
+
   public IngestionFile {
     Objects.requireNonNull(content, "El contenido (InputStream) es obligatorio");
 
