@@ -32,7 +32,6 @@ public class Credential {
   @GeneratedValue(strategy = GenerationType.UUID)
   private UUID id;
 
-
   @Column(unique = true, nullable = false, updatable = false)
   private String email;
 

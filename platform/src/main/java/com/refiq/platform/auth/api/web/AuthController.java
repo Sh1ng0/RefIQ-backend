@@ -39,7 +39,7 @@ public class AuthController {
    * @param request DTO con email y contraseña (validada por regex).
    * @return ResponseEntity con el resultado de la operación o el error de conflicto.
    */
-  // In Java 21 Jackson converts naturally any incoming JSON into a record leveraging the canonical constructor
+  // With Java 21 Jackson converts naturally any incoming JSON into a record leveraging the canonical constructor
   @PostMapping("/register")
   public ResponseEntity<?> register(@RequestBody @Valid RegisterUserRequest request) {
 

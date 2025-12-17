@@ -9,13 +9,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * Componente global de manejo de excepciones para la API REST.
  * <p>
- * Actúa como un interceptor (AOP) que captura excepciones lanzadas por el framework
- * (como fallos de validación en DTOs o JSON mal formados) y las transforma en
- * respuestas HTTP estructuradas y limpias para el cliente.
+ * Actúa como un interceptor (AOP) que captura excepciones lanzadas por el framework (como fallos de
+ * validación en DTOs o JSON mal formados) y las transforma en respuestas HTTP estructuradas y
+ * limpias para el cliente.
  * <p>
  * Garantiza que todos los errores de validación sigan un formato consistente:
  * <pre>
@@ -55,5 +56,13 @@ public class GlobalExceptionHandler {
     return ResponseEntity
         .status(HttpStatus.BAD_REQUEST)
         .body(Map.of("error", "El cuerpo de la petición (JSON) es inválido o falta."));
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<Map<String, String>> handleMaxSizeException(
+      MaxUploadSizeExceededException e) {
+    return ResponseEntity
+        .status(HttpStatus.EXPECTATION_FAILED)
+        .body(Map.of("error", "El archivo excede el tamaño máximo permitido."));
   }
 }
