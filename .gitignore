@@ -42,12 +42,12 @@ Desktop.ini
 logs/
 
 ### Security & Local Config ###
-*.env
 .env
 .env.*
 *.key
 *.p12
 *.jks
+*.env
 application-secret.properties
 application-local.properties
 *-local.properties
@@ -58,5 +58,3 @@ application-local.properties
 .dbeaver/
 .datagrip/
 data-sources.xml
-
-
