@@ -47,7 +47,7 @@ class CalculationServiceIntegrationTest {
 
   @Test
   void shouldReturnSuccessfulCalculationWhenPlumberResponds() {
-    // 1. Definimos el "Mock" del JSON que nos dio el jefe
+    // 1. Definimos el "Mock" del JSON
     String responseBody = """
             {
               "lab_result": {
@@ -64,23 +64,23 @@ class CalculationServiceIntegrationTest {
             }
             """;
 
-    // 2. Configuramos WireMock para interceptar la llamada
+
     stubFor(post(urlEqualTo("/calculate-ri"))
         .willReturn(aResponse()
             .withStatus(200)
             .withHeader("Content-Type", "application/json")
             .withBody(responseBody)));
 
-    // 3. Ejecutamos nuestro servicio
+
     CalculationRequest request = new CalculationRequest("s3://bucket/test.csv", 0.025, 0.975);
     CalculationResult result = calculationService.runAnalysis(request);
 
-    // 4. Verificamos que Java ha procesado bien el "puente"
+
     assertThat(result).isInstanceOf(CalculationResult.Success.class);
     var success = (CalculationResult.Success) result;
     assertThat(success.response().labResult().referenceRange()).isEqualTo("70-100");
 
-    // Verificamos que WireMock recibió lo que esperábamos
+
     verify(postRequestedFor(urlEqualTo("/calculate-ri"))
         .withRequestBody(containing("s3://bucket/test.csv")));
   }
@@ -89,25 +89,24 @@ class CalculationServiceIntegrationTest {
 
   @Test
   void shouldReturnEngineUnavailableWhenPlumberReturnsError() {
-    // 1. Configuramos WireMock para que falle (Simulamos un 500 o que el servicio no responde bien)
+
     stubFor(post(urlEqualTo("/calculate-ri"))
         .willReturn(aResponse()
             .withStatus(500)
             .withHeader("Content-Type", "application/json")
             .withBody("{\"error\": \"R execution failed\"}")));
 
-    // 2. Ejecutamos nuestro servicio
+
     CalculationRequest request = new CalculationRequest("s3://bucket/test.csv", 0.025, 0.975);
     CalculationResult result = calculationService.runAnalysis(request);
 
-    // 3. Verificamos que Java captura el error técnico y lo envuelve en EngineUnavailable
+
     assertThat(result).isInstanceOf(CalculationResult.EngineUnavailable.class);
 
     var error = (CalculationResult.EngineUnavailable) result;
-    // Verificamos que el mensaje de error técnico se propaga para debug
+
     assertThat(error.debugInfo()).contains("500");
 
-    // Verificamos en tus logs que se registró el error de Plumber
-    // (Esto lo verás en la consola gracias a tu CalculationLogEvent.PLUMBER_ERROR)
+
   }
 }

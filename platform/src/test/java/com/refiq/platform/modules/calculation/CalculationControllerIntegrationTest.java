@@ -40,14 +40,14 @@ class CalculationControllerIntegrationTest {
   @Test
   @DisplayName("Debe devolver 200 OK cuando el cálculo es exitoso")
   void shouldReturn200WhenSuccess() throws Exception {
-    // Preparar el mock del servicio
+
     var mockResponse = new CalculationResponse(
         new CalculationResponse.LabResult("GLU", "Glucose", null, "mg/dL", "70-100", "OK"),
         null
     );
     when(calculationService.runAnalysis(any())).thenReturn(new CalculationResult.Success(mockResponse));
 
-    // Ejecutar la petición
+
     CalculationRequest request = new CalculationRequest("s3://key", 0.025, 0.975);
 
     mockMvc.perform(post("/api/v1/calculations/run")
@@ -60,7 +60,7 @@ class CalculationControllerIntegrationTest {
   @Test
   @DisplayName("Debe devolver 503 Service Unavailable cuando el motor de R falla")
   void shouldReturn503WhenEngineFails() throws Exception {
-    // Simulamos fallo técnico en el servicio
+
     when(calculationService.runAnalysis(any()))
         .thenReturn(new CalculationResult.EngineUnavailable("Connection Timeout in R-Plumber"));
 

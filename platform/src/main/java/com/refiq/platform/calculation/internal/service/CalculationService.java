@@ -21,10 +21,10 @@ public class CalculationService {
     CalculationLogEvent.CALCULATION_STARTED.log(log, request.s3Key(), request.percentileLow(), request.percentileHigh());
 
     try {
-      // 1. Llamada al elemento ajeno (Plumber)
+
       CalculationResponse response = analysisPort.calculate(request);
 
-      // 2. Log de éxito usando tu sistema de Enums
+
       CalculationLogEvent.CALCULATION_COMPLETED.log(log, request.s3Key());
 
       return new CalculationResult.Success(response);
