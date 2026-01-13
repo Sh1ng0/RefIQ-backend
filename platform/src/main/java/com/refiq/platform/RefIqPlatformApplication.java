@@ -10,9 +10,5 @@ public class RefIqPlatformApplication {
     SpringApplication.run(RefIqPlatformApplication.class, args);
   }
 
-  // TODO
-  // - Implement PsotgreSQL
-  // - Create a Dockerfile
-  // - CSV upload endpoint prototype
 
 }

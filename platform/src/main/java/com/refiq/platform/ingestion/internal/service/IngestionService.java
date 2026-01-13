@@ -157,7 +157,7 @@ public class IngestionService {
         if (buffer.size() >= MIN_PART_SIZE_BYTES) {
           uploadChunk(key, uploadId, partNumber, buffer.toByteArray(), completedParts, uploadTasks);
           partNumber++;
-          buffer.reset(); // Vaciamos el buffer para seguir llenando
+          buffer.reset(); // Vaciamos el buffer
         }
       }
 
@@ -197,7 +197,7 @@ public class IngestionService {
 
 
 
-      // Esto borra el archivo temporal en /tmp
+      // Esto borra el archivo temporal en /tmp (El cierre del callback patter del controlador)
       if (file.cleanupCallback() != null) {
         file.cleanupCallback().run();
         log.debug("Cleanup callback ejecutado para archivo {}", fileId);
