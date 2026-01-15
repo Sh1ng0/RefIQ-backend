@@ -11,8 +11,9 @@ import java.util.Objects;
   public record CalculationRequest(
       String s3Key,
       Double percentileLow,
-      Double percentileHigh
-  //    String testCode
+      Double percentileHigh,
+      String testCode // Por temas de trazabilidad para el back, si el front no envía nada será "null", mirar el script de R y el PlumberAdapter (Línea 50)
+      // Y el Plumber adapter
   ) {
   public CalculationRequest {
     Objects.requireNonNull(s3Key, "La s3Key es obligatoria para localizar el archivo");

@@ -16,11 +16,13 @@ services:
       - REFIQ_STORAGE_S3_BUCKET_NAME=refiq-clinical-data-dev
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
+      - PLUMBER_API_URL=http://refiq-engine:8000
 
       - SPRING_PROFILES_ACTIVE=dev
     depends_on:
       - postgres
       - localstack
+      - r-engine
 
   # --- Base de Datos ---
   postgres:
@@ -48,6 +50,17 @@ services:
     volumes:
       - ./docker/init-localstack:/etc/localstack/init/ready.d
       - localstack_data:/var/lib/localstack
+
+  # --- R Engine ---
+  r-engine:
+
+    build: ./src/main/java/com/refiq/engine
+    container_name: refiq-engine
+    ports:
+      - "8000:8000"
+    volumes:
+      # Montar el script para editar sin reconstruir en dev
+      - ./src/main/java/com/refiq/engine/api_plumber.R:/app/api_plumber.R
 
 volumes:
   postgres_data:

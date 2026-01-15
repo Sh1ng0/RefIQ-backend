@@ -48,7 +48,7 @@ class CalculationControllerIntegrationTest {
     when(calculationService.runAnalysis(any())).thenReturn(new CalculationResult.Success(mockResponse));
 
 
-    CalculationRequest request = new CalculationRequest("s3://key", 0.025, 0.975);
+    CalculationRequest request = new CalculationRequest("s3://key", 0.025, 0.975, null);
 
     mockMvc.perform(post("/api/v1/calculations/run")
             .contentType(MediaType.APPLICATION_JSON)
@@ -64,7 +64,7 @@ class CalculationControllerIntegrationTest {
     when(calculationService.runAnalysis(any()))
         .thenReturn(new CalculationResult.EngineUnavailable("Connection Timeout in R-Plumber"));
 
-    CalculationRequest request = new CalculationRequest("s3://key", 0.05, 0.95);
+    CalculationRequest request = new CalculationRequest("s3://key", 0.05, 0.95, null);
 
     mockMvc.perform(post("/api/v1/calculations/run")
             .contentType(MediaType.APPLICATION_JSON)

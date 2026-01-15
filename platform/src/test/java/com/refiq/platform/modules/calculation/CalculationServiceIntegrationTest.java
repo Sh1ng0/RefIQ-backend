@@ -10,7 +10,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
 import org.springframework.test.context.ActiveProfiles;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -18,7 +17,6 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-//@AutoConfigureWireMock(port = 0) // Levanta WireMock en un puerto libre
 @ActiveProfiles("test")
 class CalculationServiceIntegrationTest {
 
@@ -29,41 +27,40 @@ class CalculationServiceIntegrationTest {
 
   @BeforeAll
   static void startWireMock() {
-    // Usamos wireMockConfig() en lugar de options()
     wireMockServer = new WireMockServer(wireMockConfig().dynamicPort());
     wireMockServer.start();
 
-    // Conectamos el cliente estático al servidor manual
     WireMock.configureFor("localhost", wireMockServer.port());
 
-    // Inyectamos el puerto en el sistema para que Spring lo lea
+
     System.setProperty("wiremock.server.port", String.valueOf(wireMockServer.port()));
   }
 
   @AfterAll
   static void stopWireMock() {
-    if (wireMockServer != null) wireMockServer.stop();
+    if (wireMockServer != null) {
+      wireMockServer.stop();
+    }
   }
 
   @Test
   void shouldReturnSuccessfulCalculationWhenPlumberResponds() {
-    // 1. Definimos el "Mock" del JSON
-    String responseBody = """
-            {
-              "lab_result": {
-                "test_code": "2345-7",
-                "name": "Glucose",
-                "value": null,
-                "unit": "mg/dL",
-                "reference_range": "70-100",
-                "notes": "Valor de referencia calculado"
-              },
-              "parameters": {
-                "weight_factor": 1.0
-              }
-            }
-            """;
 
+    String responseBody = """
+        {
+          "lab_result": {
+            "test_code": "2345-7",
+            "name": "Glucose",
+            "value": null,
+            "unit": "mg/dL",
+            "reference_range": "70-100",
+            "notes": "Valor de referencia calculado"
+          },
+          "parameters": {
+            "weight_factor": 1.0
+          }
+        }
+        """;
 
     stubFor(post(urlEqualTo("/calculate-ri"))
         .willReturn(aResponse()
@@ -72,7 +69,7 @@ class CalculationServiceIntegrationTest {
             .withBody(responseBody)));
 
 
-    CalculationRequest request = new CalculationRequest("s3://bucket/test.csv", 0.025, 0.975);
+    CalculationRequest request = new CalculationRequest("s3://bucket/test.csv", 0.025, 0.975, null);
     CalculationResult result = calculationService.runAnalysis(request);
 
 
@@ -80,33 +77,31 @@ class CalculationServiceIntegrationTest {
     var success = (CalculationResult.Success) result;
     assertThat(success.response().labResult().referenceRange()).isEqualTo("70-100");
 
-
     verify(postRequestedFor(urlEqualTo("/calculate-ri"))
-        .withRequestBody(containing("s3://bucket/test.csv")));
+
+        .withRequestBody(containing("\"test_code\":\"GENERIC\""))
+
+        .withRequestBody(containing("\"p_low\":0.025"))
+
+        .withRequestBody(containing("test.csv"))
+
+        .withRequestBody(containing("\"data_url\":")));
   }
-
-
 
   @Test
   void shouldReturnEngineUnavailableWhenPlumberReturnsError() {
-
     stubFor(post(urlEqualTo("/calculate-ri"))
         .willReturn(aResponse()
             .withStatus(500)
             .withHeader("Content-Type", "application/json")
             .withBody("{\"error\": \"R execution failed\"}")));
 
-
-    CalculationRequest request = new CalculationRequest("s3://bucket/test.csv", 0.025, 0.975);
+    CalculationRequest request = new CalculationRequest("s3://bucket/test.csv", 0.025, 0.975, null);
     CalculationResult result = calculationService.runAnalysis(request);
 
-
     assertThat(result).isInstanceOf(CalculationResult.EngineUnavailable.class);
-
     var error = (CalculationResult.EngineUnavailable) result;
 
     assertThat(error.debugInfo()).contains("500");
-
-
   }
 }
