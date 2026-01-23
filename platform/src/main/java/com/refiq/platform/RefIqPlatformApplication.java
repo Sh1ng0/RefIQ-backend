@@ -11,4 +11,12 @@ public class RefIqPlatformApplication {
   }
 
 
+  // TODO
+
+  // Meter s3Config en shared
+  // Mirar el estado de los tests de calculo e ingesta tras los refactors
+  // Limpiar el codigo y repasar el .R
+
+  // APLICAR NORMALIZACIÓN DE CSV PARA PLUMBER (Modificar ingestionService)
+
 }

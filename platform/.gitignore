@@ -59,4 +59,7 @@ application-local.properties
 .datagrip/
 data-sources.xml
 
+### Study / Local scratch files ###
+api_plumberForDummies.R
+
 
