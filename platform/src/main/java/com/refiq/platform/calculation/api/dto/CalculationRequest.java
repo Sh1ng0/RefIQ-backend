@@ -12,6 +12,7 @@ import java.util.Objects;
       String s3Key,
       Double percentileLow,
       Double percentileHigh,
+      // LOINC
       String testCode // Por temas de trazabilidad para el back, si el front no envía nada será "null", mirar el script de R y el PlumberAdapter (Línea 50)
       // Y el Plumber adapter
   ) {

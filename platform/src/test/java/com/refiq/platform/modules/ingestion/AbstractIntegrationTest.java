@@ -21,7 +21,7 @@ import java.io.IOException;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
 /**
- * Base para tests de integración que requieran infraestructura AWS (S3).
+ * Base para tests de integraci ón que requieran infraestructura AWS (S3).
  * Gestiona el ciclo de vida del contenedor LocalStack y la inyección de propiedades.
  */
 @Testcontainers

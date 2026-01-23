@@ -60,7 +60,7 @@ class FullEngineE2ETest extends AbstractIntegrationTest {
     await()
         .atMost(Duration.ofSeconds(15))
         .untilAsserted(() -> {
-          // Usamos listObjectsV2 con el builder lambda
+          // listObjectsV2 con el builder lambda
           var listResponse = s3Client.listObjectsV2(req -> req.bucket(BUCKET_NAME));
 
           boolean exists = listResponse.contents().stream()
@@ -74,15 +74,14 @@ class FullEngineE2ETest extends AbstractIntegrationTest {
     CalculationRequest calcRequest = new CalculationRequest(s3Key, 0.025, 0.975, testTraceId);
     CalculationResult calcResult = calculationService.runAnalysis(calcRequest);
 
-    // 5. ASSERT - Resultado final
+    // 5. ASSERT
     assertThat(calcResult).isInstanceOf(CalculationResult.Success.class);
     var success = (CalculationResult.Success) calcResult;
 
     assertThat(success.response().labResult().referenceRange()).isNotBlank();
 
 
-    // NUEVA VALIDACIÓN: Confirmamos la trazabilidad
-    // Si R nos devuelve el mismo código, confirmamos que el jefe puede estar tranquilo
+    // Code back
     assertThat(success.response().labResult().testCode())
         .as("El código de test debe volver intacto desde R")
         .isEqualTo(testTraceId);
@@ -91,7 +90,7 @@ class FullEngineE2ETest extends AbstractIntegrationTest {
   }
 
   private String generateMockCsvContent() {
-    // Usamos Locale.US para que el separador decimal sea SIEMPRE un punto (.)
+
     StringBuilder csv = new StringBuilder("id,age,sex,date,val\n");
     java.util.Random random = new java.util.Random();
     for (int i = 1; i <= 100; i++) {

@@ -57,30 +57,38 @@ function(res, data_url, p_low = 0.025, p_high = 0.975, test_code = "UNKNOWN") {
     }
 
 
-    # jsonlite::unbox es OBLIGATORIO para escalares, si es NULL, unbox(NULL) sigue siendo null.
-    return(list(
-      lab_result = list(
-        test_code = jsonlite::unbox(test_code), # Dinámico
-        name = jsonlite::unbox("RefineR Analysis"),
+    note_message <- "No se pudo calcular nada"
 
+        if (!is.null(ref_range_str)) {
+            if (!is.null(calculated_value)) {
+                note_message <- "Cálculo exitoso"
+            } else {
+                note_message <- "Cálculo parcial (Rango OK, sin valor estimado)"
+            }
+        } else {
+            note_message <- "Cálculo no convergió"
+        }
 
-        value = jsonlite::unbox(if(is.null(calculated_value)) NA else calculated_value),
+        return(list(
+          lab_result = list(
+            test_code = jsonlite::unbox(test_code),
+            name = jsonlite::unbox("RefineR Analysis"),
 
-        unit = jsonlite::unbox("units"), # Podrías parametrizarlo también si quieres
+            # Mantenemos el manejo de Nulos seguro que arreglamos antes
+            value = jsonlite::unbox(if(is.null(calculated_value)) NA else calculated_value),
 
+            unit = jsonlite::unbox("units"),
 
+            reference_range = jsonlite::unbox(ref_range_str),
 
-        reference_range = jsonlite::unbox(ref_range_str),
-
-        notes = jsonlite::unbox(ifelse(is.null(calculated_value),
-                                       "Cálculo no convergió",
-                                       "Cálculo exitoso"))
-      ),
-      parameters = list(
-        p_low = jsonlite::unbox(as.numeric(p_low)),
-        p_high = jsonlite::unbox(as.numeric(p_high))
-      )
-    ))
+            # Usamos la nueva variable calculada arriba
+            notes = jsonlite::unbox(note_message)
+          ),
+          parameters = list(
+            p_low = jsonlite::unbox(as.numeric(p_low)),
+            p_high = jsonlite::unbox(as.numeric(p_high))
+          )
+        ))
 
   }, error = function(e) {
     message(paste("CRITICAL ERROR:", e$message))
