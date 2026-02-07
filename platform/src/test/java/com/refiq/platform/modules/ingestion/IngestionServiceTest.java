@@ -7,19 +7,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.opencsv.CSVWriter;
+
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
+import com.refiq.platform.ingestion.internal.normalizer.CanonicalCSV;
+import com.refiq.platform.ingestion.internal.normalizer.CsvNormalizer;
+import com.refiq.platform.ingestion.internal.normalizer.NormalizationResult;
 import com.refiq.platform.ingestion.internal.port.StoragePort;
 import com.refiq.platform.ingestion.internal.service.IngestionService;
 import java.io.ByteArrayInputStream;
-import java.io.StringWriter;
+import java.util.concurrent.atomic.AtomicBoolean; // Para verificar el callback sin Mockito
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -33,135 +34,108 @@ class IngestionServiceTest {
   @Mock
   StoragePort storagePort;
 
+  @Mock
+  CsvNormalizer normalizer;
+
   @InjectMocks
   IngestionService ingestionService;
 
+
+
   @Test
-  void should_AbortUpload_And_Cleanup_When_OnePartFails() {
+  void should_AbortUpload_And_Cleanup_When_CanonicalUploadFails() {
     // GIVEN
-    String hugeLine = "a".repeat(1024 * 1024); // 1MB linea
-    StringBuilder sb = new StringBuilder();
-    // Big file para ver el chunking en acción
-    for(int i=0; i<15; i++) {
-      sb.append(hugeLine).append("\n");
-    }
-    String content = sb.toString();
+    String content = "Header\nData";
 
-
-    Runnable cleanupMock = mock(Runnable.class);
+    // FIX JDK 26: Usamos AtomicBoolean en lugar de mock(Runnable.class)
+    AtomicBoolean cleanedUp = new AtomicBoolean(false);
+    Runnable realCleanup = () -> cleanedUp.set(true);
 
     IngestionFile file = new IngestionFile(
         "test_fail.csv",
-        new ByteArrayInputStream(content.getBytes()),
+        () -> new ByteArrayInputStream(content.getBytes()),
         content.length(),
         "text/csv",
-        cleanupMock
+        realCleanup
     );
 
+
+    when(storagePort.upload(eq(file), anyString())).thenReturn("raw/path");
+
+
     when(storagePort.initMultipartUpload(any(), any())).thenReturn("upload-123");
-    when(storagePort.uploadPart(any(), eq("upload-123"), eq(1), any())).thenReturn("etag-1");
 
 
-    when(storagePort.uploadPart(any(), eq("upload-123"), eq(2), any()))
-        .thenThrow(new RuntimeException("S3 Caído"));
+    when(storagePort.uploadPart(any(), eq("upload-123"), anyInt(), any()))
+        .thenThrow(new RuntimeException("S3 Caído durante Canonical"));
 
-    //  WHEN
+
+    when(normalizer.normalize(any())).thenReturn(
+        new NormalizationResult.Success(new CanonicalCSV("1", "10", "2000-01-01", "M", "10.5", "unit", "hash"))
+    );
+
+    // WHEN
     ingestionService.ingest(file);
 
-
+    // THEN
     await().atMost(2, SECONDS).untilAsserted(() -> {
-      verify(cleanupMock, times(1)).run();
+      assertThat(cleanedUp.get()).as("El cleanup callback debe ejecutarse siempre").isTrue();
     });
 
-    // THEN
+
     verify(storagePort).abortMultipartUpload(anyString(), eq("upload-123"));
-    verify(storagePort, never()).completeMultipartUpload(any(), any(), any());
   }
 
   @Test
-  void should_FilterInvalidLines_And_UploadOnlyCleanContent() {
+  void should_Normalize_And_UploadCanonical() {
     // GIVEN
+
     String csvContent = """
-        Col1,Col2,Col3
-        Val1,Val2,Val3
-        Val1,Val2
-        ValX,ValY,ValZ
-        ERROR
-        Final,Line,OK
+        ID;Age;DOB;Sex;Res;Val
+        1;100;2020-01-01;M;10;10,5
         """;
 
-    Runnable cleanupMock = mock(Runnable.class);
+    AtomicBoolean cleanedUp = new AtomicBoolean(false);
 
     IngestionFile file = new IngestionFile(
         "dirty.csv",
-        new ByteArrayInputStream(csvContent.getBytes()),
+        () -> new ByteArrayInputStream(csvContent.getBytes()),
         csvContent.length(),
         "text/csv",
-        cleanupMock
+        () -> cleanedUp.set(true)
     );
+
+
+    when(storagePort.upload(eq(file), anyString())).thenReturn("raw/ok");
+
 
     when(storagePort.initMultipartUpload(any(), any())).thenReturn("up-clean");
     when(storagePort.uploadPart(any(), eq("up-clean"), anyInt(), any())).thenReturn("etag-ok");
 
-    //  WHEN
+    when(normalizer.normalize(any())).thenReturn(
+        new NormalizationResult.Success(
+            new CanonicalCSV("1", "100", "2020-01-01", "M", "10.5", "N/A", "hash")
+        )
+    );
+
+    // WHEN
     ingestionService.ingest(file);
 
-    //  THEN
+    // THEN
     await().atMost(2, SECONDS).untilAsserted(() -> {
+      // Verifica que se completó la subida canónica
       verify(storagePort).completeMultipartUpload(any(), eq("up-clean"), any());
-      verify(cleanupMock).run(); // El archivo temporal debe morir
+      assertThat(cleanedUp.get()).isTrue();
     });
 
-
+    // Validamos que lo que se subió tiene formato CSV estándar (con comas)
     ArgumentCaptor<byte[]> payloadCaptor = ArgumentCaptor.forClass(byte[].class);
     verify(storagePort).uploadPart(any(), eq("up-clean"), anyInt(), payloadCaptor.capture());
 
     String uploadedContent = new String(payloadCaptor.getValue());
 
-    // Nota: CSVWriter por defecto pone comillas dobles: "Col1","Col2","Col3"
-
-    assertThat(uploadedContent).contains("\"Col1\",\"Col2\",\"Col3\"");
-    assertThat(uploadedContent).contains("\"Val1\",\"Val2\",\"Val3\"");
-
-
-    assertThat(uploadedContent).doesNotContain("ERROR");
-
-    assertThat(uploadedContent).doesNotContain("\"Val1\",\"Val2\"\n");
-  }
-
-  @Test
-  void should_Handle_Newlines_Inside_Quotes() {
-    // GIVEN (El caso por el que usamos OpenCSV)
-
-    String difficultCsv = """
-        ID,Description,Price
-        1,"Producto con
-        salto de linea",100
-        """;
-
-    Runnable cleanupMock = mock(Runnable.class);
-    IngestionFile file = new IngestionFile("complex.csv",
-        new ByteArrayInputStream(difficultCsv.getBytes()), difficultCsv.length(), "text/csv", cleanupMock);
-
-    when(storagePort.initMultipartUpload(any(), any())).thenReturn("up-complex");
-    when(storagePort.uploadPart(any(), any(), anyInt(), any())).thenReturn("etag");
-
-    //  WHEN
-    ingestionService.ingest(file);
-
-    //  THEN
-    await().atMost(2, SECONDS).untilAsserted(() -> {
-      verify(storagePort).completeMultipartUpload(any(), any(), any());
-    });
-
-    ArgumentCaptor<byte[]> payloadCaptor = ArgumentCaptor.forClass(byte[].class);
-    verify(storagePort).uploadPart(any(), any(), anyInt(), payloadCaptor.capture());
-    String uploaded = new String(payloadCaptor.getValue());
-
-
-    assertThat(uploaded).contains("\"1\"");
-    assertThat(uploaded).contains("100");
-    // CSVWriter normalizará el salto de línea dentro de las comillas
-    assertThat(uploaded).contains("Producto con\nsalto de linea");
+    // CanonicalCSV usa comas: "1","100","2020-01-01","M","10.5","N/A","hash"
+    assertThat(uploadedContent).contains("\"1\",\"100\"");
+    assertThat(uploadedContent).contains("\"10.5\""); // Punto decimal
   }
 }

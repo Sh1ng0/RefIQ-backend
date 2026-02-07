@@ -13,10 +13,8 @@ public class RefIqPlatformApplication {
 
   // TODO
 
-  // Meter s3Config en shared
-  // Mirar el estado de los tests de calculo e ingesta tras los refactors
-  // Limpiar el codigo y repasar el .R
+ // LOGGING estructurado para CSvNormalizer y el nuevo servicio
 
-  // APLICAR NORMALIZACIÓN DE CSV PARA PLUMBER (Modificar ingestionService)
+  // Pantearse si normalizar todas las estrategias de test a Arrange Act Assert o Given When Then
 
 }

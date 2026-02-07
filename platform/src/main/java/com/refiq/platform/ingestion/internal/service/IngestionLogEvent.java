@@ -11,24 +11,39 @@ enum IngestionLogEvent implements Loggable {
 
   UPLOAD_INITIATED(LogLevel.DEBUG, "Iniciando carga de archivo. Nombre original: {}, Tamaño: {} bytes"),
 
-  FILE_VALIDATION_FAILED(LogLevel.WARN, "Archivo rechazado por validación. Motivo: {}"),
-
-  UPLOAD_SUCCESS(LogLevel.INFO, "Archivo subido correctamente a S3. ID: {}, Key: {}"),
-
-  STORAGE_ERROR(LogLevel.ERROR, "Fallo crítico al subir archivo al storage. ID: {}, Error: {}"),
-
-  ASYNC_PROCESS_STARTED(LogLevel.INFO, "Proceso de ingesta asíncrona aceptado. ID: {}, Key: {}"),
-
-  VALIDATION_WARNING(LogLevel.WARN,"Línea ignorada por formato inválido. Esperadas: {}, Encontradas: {}. Contenido: '{}'"),
-  INGESTION_COMPLETED_WITH_WARNINGS(LogLevel.INFO,"Ingesta finalizada con advertencias. Líneas procesadas: {}, Líneas ignoradas: {}"),
+//  FILE_VALIDATION_FAILED(LogLevel.WARN, "Archivo rechazado por validación. Motivo: {}"),
+//
+//  UPLOAD_SUCCESS(LogLevel.INFO, "Archivo subido correctamente a S3. ID: {}, Key: {}"),
+//
+//  STORAGE_ERROR(LogLevel.ERROR, "Fallo crítico al subir archivo al storage. ID: {}, Error: {}"),
+//
+//  ASYNC_PROCESS_STARTED(LogLevel.INFO, "Proceso de ingesta asíncrona aceptado. ID: {}, Key: {}"),
+//
+//  VALIDATION_WARNING(LogLevel.WARN,"Línea ignorada por formato inválido. Esperadas: {}, Encontradas: {}. Contenido: '{}'"),
+//  INGESTION_COMPLETED_WITH_WARNINGS(LogLevel.INFO,"Ingesta finalizada con advertencias. Líneas procesadas: {}, Líneas ignoradas: {}"),
 
   MULTIPART_INITIATED(LogLevel.DEBUG, "Iniciada transacción S3 Multipart. UploadId: {}"),
 
-  PART_UPLOADED(LogLevel.DEBUG, "Parte #{} subida correctamente. ETag: {}"),
+//  PART_UPLOADED(LogLevel.DEBUG, "Parte #{} subida correctamente. ETag: {}"),
+//
+//  MULTIPART_COMPLETED(LogLevel.INFO, "Ingesta finalizada exitosamente. Total partes: {}"),
+//
+//  MULTIPART_ABORTED(LogLevel.ERROR, "Proceso abortado por error crítico. ID: {}, Motivo: {}"),
 
-  MULTIPART_COMPLETED(LogLevel.INFO, "Ingesta finalizada exitosamente. Total partes: {}"),
 
-  MULTIPART_ABORTED(LogLevel.ERROR, "Proceso abortado por error crítico. ID: {}, Motivo: {}");
+  RAW_UPLOAD_STARTED(LogLevel.DEBUG, "Iniciando subida de respaldo RAW a S3. Key: {}"),
+
+  RAW_UPLOAD_SUCCESS(LogLevel.INFO, "Respaldo RAW persistido correctamente. Key: {}"),
+
+  CANONICAL_PROCESSING_STARTED(LogLevel.DEBUG, "Iniciando procesamiento y subida Canónica. Key destino: {}"),
+
+  ROW_REJECTED(LogLevel.WARN, "Fila descartada tras normalización. Motivo: {} | Data: {}"),
+
+  CANONICAL_SUMMARY(LogLevel.INFO, "Ingesta Canónica finalizada [FileID: {}]. Total Filas: {}, Válidas: {}, Rechazadas: {}"),
+
+  PIPELINE_ERROR(LogLevel.ERROR, "Fallo crítico en pipeline de ingesta [FileID: {}]. Causa: {}");
+
+
 
   private final LogLevel level;
   private final String template;

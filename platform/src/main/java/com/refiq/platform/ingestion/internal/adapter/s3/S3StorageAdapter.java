@@ -61,6 +61,7 @@ public class S3StorageAdapter implements StoragePort {
    *                          AWS S3 falla (por credenciales, red, permisos, etc.).
    */
   @Override
+  @Deprecated
   public String upload(IngestionFile file, String uniqueKey) {
 
     PutObjectRequest request = PutObjectRequest.builder()
@@ -71,14 +72,14 @@ public class S3StorageAdapter implements StoragePort {
 
     // Aquí es donde garantizamos que el stream (abierto en el Controller) se cierra.
     // El try-with-resources asegura el .close() automático al terminar el bloque.
-    try (InputStream streamToClose = file.content()) {
+    try (InputStream streamToClose = file.openStream()) {
 
       // AWS SDK v2 requiere conocer el tamaño para optimizar la transferencia (Content-Length)
       RequestBody body = RequestBody.fromInputStream(streamToClose, file.size());
 
       s3Client.putObject(request, body);
 
-      log.debug("Subida a S3 exitosa: {}/{}", bucketName, uniqueKey);
+      StorageLogEvent.SINGLE_UPLOAD_SUCCESS.log(log, bucketName, uniqueKey);
 
       return uniqueKey;
 
@@ -113,6 +114,8 @@ public class S3StorageAdapter implements StoragePort {
           contentType(contentType).build();
 
       String uploadId = s3Client.createMultipartUpload(request).uploadId();
+
+      StorageLogEvent.MULTIPART_INITIATED.log(log, uploadId);
 
       return uploadId;
     } catch (Exception e) {
@@ -149,7 +152,7 @@ public class S3StorageAdapter implements StoragePort {
       // AWS SDK v2 usa RequestBody.fromBytes para arrays en memoria
       String eTag = s3Client.uploadPart(request, RequestBody.fromBytes(payload)).eTag();
 
-      log.trace("Parte {} subida. Key: {}, ETag: {}", partNumber, key, eTag);
+//      StorageLogEvent.PART_UPLOADED.log(log, partNumber, key, eTag);
       return eTag;
 
     } catch (Exception e) {
@@ -197,7 +200,7 @@ public class S3StorageAdapter implements StoragePort {
           .build();
 
       s3Client.completeMultipartUpload(request);
-      log.info("Multipart upload completado exitosamente. Key: {}", key);
+      StorageLogEvent.MULTIPART_COMPLETED.log(log, key);
 
     } catch (Exception e) {
       throw new RuntimeException("Error finalizando multipart upload: " + e.getMessage(), e);
@@ -226,11 +229,10 @@ public class S3StorageAdapter implements StoragePort {
           .build();
 
       s3Client.abortMultipartUpload(request);
-      log.warn("Multipart upload abortado. Key: {}, ID: {}", key, uploadId);
+      StorageLogEvent.MULTIPART_ABORTED.log(log, key, uploadId);
 
     } catch (Exception e) {
-      // Solo logueamos, no relanzamos porque suele ser una operación de limpieza
-      log.error("Fallo al intentar abortar la subida: {}", e.getMessage());
+      StorageLogEvent.ABORT_FAILED.log(log, e.getMessage());
     }
   }
 

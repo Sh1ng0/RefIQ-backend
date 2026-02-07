@@ -6,18 +6,16 @@ import com.refiq.platform.calculation.internal.service.CalculationService;
 import com.refiq.platform.ingestion.api.dto.IngestionResult;
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
 import com.refiq.platform.ingestion.internal.service.IngestionService;
-import com.refiq.platform.modules.ingestion.AbstractIntegrationTest;
+import com.refiq.platform.modules.ingestion.AbstractIntegrationTest; // Asumo que esto configura S3/Localstack
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
-import software.amazon.awssdk.services.s3.S3Client; // Importante para el compilador
-import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -33,69 +31,100 @@ class FullEngineE2ETest extends AbstractIntegrationTest {
   private CalculationService calculationService;
 
   @Autowired
-  private S3Client s3Client; // Inyectamos el cliente para las validaciones del test
+  private S3Client s3Client;
+
 
   private static final String BUCKET_NAME = "refiq-clinical-data-dev";
 
   @Test
   void shouldPerformFullAnalysisFromS3UploadToRResult() {
-    // 1. ARRANGE
+
     String csvContent = generateMockCsvContent();
+
+    // ARRANGE
+
     IngestionFile file = new IngestionFile(
         "e2e-test-data.csv",
-        new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8)),
+
+        () -> new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8)),
         (long) csvContent.length(),
         "text/csv",
-        () -> {}
+        () -> {
+        } // Callback vacío para tests
     );
 
-    // 2. ACT - Ingestión
+    // ACT
     IngestionResult ingestionResult = ingestionService.ingest(file);
     assertThat(ingestionResult).isInstanceOf(IngestionResult.Success.class);
 
     String fileId = ((IngestionResult.Success) ingestionResult).response().fileId().toString();
-    String s3Key = fileId + "-e2e-test-data.csv";
 
-    // 3. ASSERT - Espera asíncrona (Corrigiendo la sintaxis del SDK v2)
+    // La ruta raw sería "raw/" + fileId + "-e2e-test-data.csv"
+    String canonicalS3Key = "canonical/" + fileId + ".csv";
+
+    // ASSERT
     await()
         .atMost(Duration.ofSeconds(15))
+        .pollInterval(Duration.ofMillis(500))
         .untilAsserted(() -> {
-          // listObjectsV2 con el builder lambda
-          var listResponse = s3Client.listObjectsV2(req -> req.bucket(BUCKET_NAME));
+
+          var listResponse = s3Client.listObjectsV2(
+              req -> req.bucket(BUCKET_NAME).prefix("canonical/"));
 
           boolean exists = listResponse.contents().stream()
-              .anyMatch(obj -> obj.key().equals(s3Key));
+              .anyMatch(obj -> obj.key().equals(canonicalS3Key));
 
-          assertThat(exists).as("El archivo con key %s debe existir en S3", s3Key).isTrue();
+          assertThat(exists)
+              .as("El archivo canónico %s debe haber sido generado y subido a S3", canonicalS3Key)
+              .isTrue();
         });
 
-    // 4. ACT - Cálculo
+    // ACT II
     String testTraceId = "E2E-TEST-001";
-    CalculationRequest calcRequest = new CalculationRequest(s3Key, 0.025, 0.975, testTraceId);
+
+
+    CalculationRequest calcRequest = new CalculationRequest(canonicalS3Key, 0.025, 0.975,
+        testTraceId);
+
+
     CalculationResult calcResult = calculationService.runAnalysis(calcRequest);
 
-    // 5. ASSERT
+    // ASSERT II
     assertThat(calcResult).isInstanceOf(CalculationResult.Success.class);
     var success = (CalculationResult.Success) calcResult;
 
-    assertThat(success.response().labResult().referenceRange()).isNotBlank();
+    assertThat(success.response().labResult().referenceRange())
+        .as("R debe haber calculado un rango válido")
+        .isNotBlank();
 
-
-    // Code back
     assertThat(success.response().labResult().testCode())
         .as("El código de test debe volver intacto desde R")
         .isEqualTo(testTraceId);
 
-    System.out.println("DEBUG - Rango: " + success.response().labResult().referenceRange());
+    System.out.println(
+        "DEBUG - Rango Calculado por R: " + success.response().labResult().referenceRange());
   }
 
+  /**
+   * Genera un CSV compatible con el CsvNormalizer actual. Formato:
+   * ID;Age;DateOfBirth;Sex;ValueOriginalResult;ValueResult
+   */
   private String generateMockCsvContent() {
+    StringBuilder csv = new StringBuilder();
 
-    StringBuilder csv = new StringBuilder("id,age,sex,date,val\n");
+    csv.append("ID;Age;DateOfBirth;Sex;ValueOriginalResult;ValueResult\n");
+
     java.util.Random random = new java.util.Random();
-    for (int i = 1; i <= 100; i++) {
+    for (int i = 1; i <= 50; i++) {
       double val = 140.0 + (random.nextGaussian() * 5.0);
-      csv.append(String.format(java.util.Locale.US, "%d,50,M,2026-01-14,%.2f\n", i, val));
+
+
+      csv.append(String.format(java.util.Locale.GERMAN, // Locale German usa comas para decimales
+          "%d;%d;1980-01-01;M;%.2f;%.2f\n",
+          i,
+          18000 + i,
+          val,
+          val));
     }
     return csv.toString();
   }

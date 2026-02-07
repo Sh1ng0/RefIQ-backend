@@ -107,10 +107,20 @@ public class IngestionController {
 
     return new IngestionFile(
         file.getOriginalFilename(),
-        new FileInputStream(tempPath.toFile()),
+        // Supplier no soporta UNcheckedExceptions
+        () -> {
+          try {
+            return new FileInputStream(tempPath.toFile());
+          } catch (IOException e) {
+            throw new java.io.UncheckedIOException("No se pudo abrir el archivo temporal", e);
+          }
+        },
+
         file.getSize(),
         file.getContentType(),
-        () -> { // Definimos CÓMO borrarlo (Callback pattern)
+
+        // 3. Callback de limpieza (se mantiene igual)
+        () -> {
           try {
             Files.deleteIfExists(tempPath);
             log.trace("Archivo temporal eliminado: {}", tempPath);
