@@ -6,15 +6,19 @@ import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResponse;
 
 /**
- * Puerto que define la comunicación con el motor estadístico.
- * Implementa el desacoplamiento entre Java y el elemento ajeno (R).
+ * Output port defining the contract for communication with the statistical engine.
+ * <p>
+ * This interface decouples the core Java application logic from the external R execution environment,
+ * adhering to Hexagonal Architecture principles.
+ * </p>
  */
 public interface AnalysisPort {
 
   /**
-   * Ejecuta el análisis estadístico refineR.
-   * @param request Datos mínimos (S3Key y Percentiles).
-   * @return Respuesta con los rangos calculados.
+   * Executes the statistical analysis (RefineR) on the specified dataset.
+   *
+   * @param request The calculation parameters (S3 Key and percentiles).
+   * @return The response containing the calculated reference intervals.
    */
   CalculationResponse calculate(CalculationRequest request);
 }

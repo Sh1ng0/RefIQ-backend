@@ -25,12 +25,10 @@ import java.io.InputStream;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 
 /**
- * Adaptador de infraestructura (Adapter Secundario) que implementa la persistencia de archivos en
- * AWS S3.
+ * Secondary adapter implementing file persistence using AWS S3.
  * <p>
- * Esta clase concreta el puerto {@link StoragePort} definido en el dominio, encargándose de los
- * detalles de bajo nivel de la comunicación con Amazon S3 y la gestión correcta de los recursos de
- * I/O (streams).
+ * This class fulfills the {@link StoragePort} contract, handling low-level interactions with
+ * the S3 SDK, resource management (stream closing), and multipart upload orchestration.
  * </p>
  */
 @Component
@@ -44,22 +42,7 @@ public class S3StorageAdapter implements StoragePort {
   @Value("${refiq.storage.s3.bucket-name}")
   private String bucketName;
 
-  /**
-   * Sube el contenido de un archivo de dominio a un bucket de S3.
-   * <p>
-   * <strong>Gestión de Recursos:</strong> Este método asume la responsabilidad de
-   * cerrar el {@link InputStream} contenido en el objeto {@code IngestionFile}. Utiliza un bloque
-   * <em>try-with-resources</em> para garantizar que no queden file descriptors abiertos, incluso
-   * si la subida a S3 falla.
-   * </p>
-   *
-   * @param file      Objeto de dominio que contiene los metadatos y el stream de datos del
-   *                  archivo.
-   * @param uniqueKey Identificador único (path/key) con el que se guardará el objeto en S3.
-   * @return La clave única (key) del objeto almacenado, confirmando la ubicación del recurso.
-   * @throws RuntimeException Si ocurre un error de I/O al leer el stream o si la comunicación con
-   *                          AWS S3 falla (por credenciales, red, permisos, etc.).
-   */
+
   @Override
   @Deprecated
   public String upload(IngestionFile file, String uniqueKey) {
@@ -94,16 +77,7 @@ public class S3StorageAdapter implements StoragePort {
   // --- Métodos Multipart (Streaming) ---
 
   /**
-   * Inicia una transacción de carga multiparte (Multipart Upload) en S3.
-   * <p>
-   * Esta operación no sube datos, solo reserva el contexto en S3 y obtiene un ID único
-   * que deberá ser utilizado en todas las subidas de partes subsiguientes.
-   * </p>
-   *
-   * @param key Ruta/Nombre del archivo destino en el bucket.
-   * @param contentType Tipo MIME del archivo (ej. text/csv).
-   * @return El {@code uploadId} generado por AWS S3 para esta transacción específica.
-   * @throws RuntimeException Si AWS rechaza la creación de la transacción.
+   * {@inheritDoc}
    */
   @Override
   public String initMultipartUpload(String key, String contentType) {
@@ -125,19 +99,11 @@ public class S3StorageAdapter implements StoragePort {
   }
 
   /**
-   * Sube un fragmento (chunk) individual del archivo.
+   * {@inheritDoc}
    * <p>
-   * Utiliza {@code RequestBody.fromBytes} para enviar el payload en memoria.
-   * Es crucial que cada parte (excepto la última) tenga un tamaño mínimo (generalmente 5MB)
-   * para que S3 la acepte.
+   * Uses in-memory byte arrays for the payload. S3 requires parts (except the last one) to be
+   * larger than a minimum size (typically 5MB).
    * </p>
-   *
-   * @param key La clave del archivo en S3.
-   * @param uploadId El ID de la transacción multipart activa.
-   * @param partNumber El número secuencial de la parte (comenzando en 1).
-   * @param payload El array de bytes con el contenido del fragmento.
-   * @return El {@code ETag} (hash) que S3 asigna a esta parte, necesario para completar la unión final.
-   * @throws RuntimeException Si falla la subida de la parte específica.
    */
   @Override
   public String uploadPart(String key, String uploadId, int partNumber, byte[] payload) {
@@ -163,17 +129,12 @@ public class S3StorageAdapter implements StoragePort {
   }
 
   /**
-   * Finaliza la transacción, indicando a S3 que ensamble todas las partes subidas.
+   * {@inheritDoc}
    * <p>
-   * <strong>Nota Técnica:</strong> S3 exige estrictamente que la lista de partes enviada
-   * en esta petición esté ordenada ascendentemente por {@code partNumber}. Este método
-   * se encarga de realizar dicho ordenamiento antes de enviar la solicitud.
+   * <strong>Note:</strong> S3 strictly requires the list of completed parts to be sorted by
+   * part number in ascending order. This implementation sorts the provided map before sending
+   * the request.
    * </p>
-   *
-   * @param key La clave del archivo.
-   * @param uploadId El ID de la transacción.
-   * @param completedPartsMap Mapa conteniendo {@code partNumber -> ETag} de todas las partes exitosas.
-   * @throws RuntimeException Si S3 no puede ensamblar el archivo (ej. faltan partes o ETags inválidos).
    */
   @Override
   public void completeMultipartUpload(String key, String uploadId,
@@ -209,15 +170,11 @@ public class S3StorageAdapter implements StoragePort {
     }
 
   /**
-   * Cancela una transacción multipart en curso y solicita a S3 que elimine las partes parciales subidas.
+   * {@inheritDoc}
    * <p>
-   * Se implementa como una operación "Best Effort" (Mejor Esfuerzo): si falla (por red o porque
-   * ya no existe el ID), se loguea el error pero no se lanza excepción para no ocultar la causa
-   * raíz del fallo original (Rollback silencioso).
+   * Implemented as a "Best Effort" operation. If the abort fails (e.g., network issue),
+   * it logs the error but suppresses the exception to avoid masking the original failure cause.
    * </p>
-   *
-   * @param key La clave del archivo.
-   * @param uploadId El ID de la transacción a abortar.
    */
   @Override
   public void abortMultipartUpload(String key, String uploadId) {

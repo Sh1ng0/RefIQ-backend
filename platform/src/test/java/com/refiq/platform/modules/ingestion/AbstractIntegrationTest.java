@@ -21,8 +21,8 @@ import java.io.IOException;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
 /**
- * Base para tests de integraci ón que requieran infraestructura AWS (S3).
- * Gestiona el ciclo de vida del contenedor LocalStack y la inyección de propiedades.
+ * Base class for integration tests that require AWS infrastructure (S3).
+ * Manages the lifecycle of the LocalStack container and property injection.
  */
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

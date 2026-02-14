@@ -22,10 +22,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
+
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
-@DisplayName("📊 Cálculo - Integración de API (Controller)")
+@DisplayName("Calculation - Integration API (Controller)")
 class CalculationControllerIntegrationTest {
 
   @Autowired
@@ -38,37 +41,84 @@ class CalculationControllerIntegrationTest {
   private CalculationService calculationService;
 
   @Test
-  @DisplayName("Debe devolver 200 OK cuando el cálculo es exitoso")
+  @DisplayName("200 OK: Should return JSON result on successful calculation")
   void shouldReturn200WhenSuccess() throws Exception {
-
+    // GIVEN
     var mockResponse = new CalculationResponse(
-        new CalculationResponse.LabResult("GLU", "Glucose", null, "mg/dL", "70-100", "OK"),
+        new CalculationResponse.LabResult("GLU", "Glucose", 95.5, "mg/dL", "70-100", "OK"),
         null
     );
-    when(calculationService.runAnalysis(any())).thenReturn(new CalculationResult.Success(mockResponse));
-
+    when(calculationService.runAnalysis(any()))
+        .thenReturn(new CalculationResult.Success(mockResponse));
 
     CalculationRequest request = new CalculationRequest("s3://key", 0.025, 0.975, null);
 
+    // WHEN & THEN
     mockMvc.perform(post("/api/v1/calculations/run")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.lab_result.reference_range").value("70-100"));
+        .andExpect(jsonPath("$.lab_result.reference_range").value("70-100"))
+        .andExpect(jsonPath("$.lab_result.value").value(95.5));
   }
 
   @Test
-  @DisplayName("Debe devolver 503 Service Unavailable cuando el motor de R falla")
+  @DisplayName("503 Service Unavailable: Should handle R engine technical failure")
   void shouldReturn503WhenEngineFails() throws Exception {
-
+    // GIVEN
+    String errorMsg = "Connection Timeout in R-Plumber";
     when(calculationService.runAnalysis(any()))
-        .thenReturn(new CalculationResult.EngineUnavailable("Connection Timeout in R-Plumber"));
+        .thenReturn(new CalculationResult.EngineUnavailable(errorMsg));
 
     CalculationRequest request = new CalculationRequest("s3://key", 0.05, 0.95, null);
 
+    // WHEN & THEN
     mockMvc.perform(post("/api/v1/calculations/run")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
-        .andExpect(status().isServiceUnavailable());
+        .andExpect(status().isServiceUnavailable())
+        .andExpect(jsonPath("$.error").value("Engine Unavailable"))
+        .andExpect(jsonPath("$.debug_info").value(errorMsg));
+  }
+
+
+  @Test
+  @DisplayName("422 Unprocessable Entity: Should handle data inconsistency (Business rejection)")
+  void shouldReturn422WhenDataIsInconsistent() throws Exception {
+    // GIVEN
+    String reason = "Datos insuficientes para RefineR. Válidos encontrados: 5";
+
+    when(calculationService.runAnalysis(any()))
+        .thenReturn(new CalculationResult.DataInconsistency(reason));
+
+    CalculationRequest request = new CalculationRequest("s3://bucket/pocos_datos.csv", 0.025, 0.975, null);
+
+    // WHEN & THEN
+    mockMvc.perform(post("/api/v1/calculations/run")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnprocessableEntity()) // Valida el status 422
+        .andExpect(jsonPath("$.error").value("Data Inconsistency"))
+        .andExpect(jsonPath("$.details").value(reason));
+  }
+
+
+  @Test
+  @DisplayName("400 Bad Request: Should handle logically invalid requests")
+  void shouldReturn400WhenRequestIsInvalid() throws Exception {
+    // GIVEN
+    String reason = "Percentil inválido";
+    when(calculationService.runAnalysis(any()))
+        .thenReturn(new CalculationResult.InvalidRequest(reason));
+
+    CalculationRequest request = new CalculationRequest("s3://bucket/bad.csv", 0.025, 0.975, null);
+
+    // WHEN & THEN
+    mockMvc.perform(post("/api/v1/calculations/run")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("Invalid Request"))
+        .andExpect(jsonPath("$.reason").value(reason));
   }
 }

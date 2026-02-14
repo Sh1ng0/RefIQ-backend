@@ -11,6 +11,19 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+
+/**
+ * Shared configuration for Amazon S3 infrastructure.
+ * <p>
+ * This class establishes the beans required to interact with object storage. It is designed to work
+ * transparently across different environments:
+ * <ul>
+ * <li><strong>Production (AWS):</strong> Uses standard region and IAM/Key credentials.</li>
+ * <li><strong>Development (LocalStack):</strong> Supports endpoint overriding, path-style access,
+ * and specific Docker network routing for presigned URLs.</li>
+ * </ul>
+ * </p>
+ */
 @Configuration
 public class S3Config {
 
@@ -26,9 +39,25 @@ public class S3Config {
   @Value("${aws.secretAccessKey:}")
   private String secretKey;
 
+
+  /**
+   * Special endpoint for presigned URLs.
+   * Required when the address used by the backend to reach S3 (e.g., internal Docker network)
+   * differs from the address used by external clients (e.g., localhost or public URL).
+   */
   @Value("${refiq.storage.s3.presigned-endpoint:}")
   private String presignedEndpoint;
 
+
+  /**
+   * Configures and provides the synchronous {@link S3Client}.
+   * <p>
+   * <strong>Implementation Note:</strong> Forces {@code pathStyleAccessEnabled(true)} to ensure
+   * compatibility with LocalStack and MinIO, which often reject the default DNS-style bucket addressing.
+   * </p>
+   *
+   * @return The configured S3 client ready for I/O operations.
+   */
   @Bean
   public S3Client s3Client() {
     var builder = S3Client.builder()
@@ -56,6 +85,19 @@ public class S3Config {
     return builder.build();
   }
 
+  /**
+   * Configures and provides the {@link S3Presigner} for generating temporary access URLs.
+   * <p>
+   * This bean is critical for the Calculation module, allowing the R engine to download files
+   * securely without needing permanent AWS credentials.
+   * </p>
+   * <p>
+   * It prioritizes {@code presigned-endpoint} over the standard {@code endpoint} to solve
+   * Docker networking scenarios where the container URL differs from the host URL.
+   * </p>
+   *
+   * @return The configured S3 Presigner.
+   */
   @Bean
   public S3Presigner s3Presigner() {
     var builder = S3Presigner.builder()
