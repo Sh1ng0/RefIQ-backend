@@ -1,28 +1,35 @@
 package com.refiq.platform.calculation.api.dto;
 
 /**
- * Representa el resultado de la operación de cálculo de rangos.
- * Sigue el patrón de tipos sellados para un manejo exhaustivo en el controlador.
+ * Represents the sealed result of the reference range calculation operation.
+ * <p>
+ * Follows the sealed interface pattern to enforce exhaustive handling of all possible outcomes
+ * (Success, Invalid Request, Engine Failure, Data Inconsistency) in the controller layer.
+ * </p>
  */
 public sealed interface CalculationResult {
 
   /**
-   * Cálculo finalizado con éxito. Contiene la respuesta lista para el Front-end.
+   * The calculation completed successfully. Contains the response payload for the frontend.
    */
   record Success(CalculationResponse response) implements CalculationResult {}
 
   /**
-   * Error en los parámetros enviados (ej. percentiles inválidos o test_code inexistente).
+   * The request parameters were invalid (e.g., impossible percentiles, missing keys).
    */
   record InvalidRequest(String reason) implements CalculationResult {}
 
   /**
-   * El motor de R (Plumber) no está disponible o ha devuelto un error técnico.
+   * Technical failure: The R engine (Plumber) is unavailable, timed out, or returned a 500 error.
    */
   record EngineUnavailable(String debugInfo) implements CalculationResult {}
 
   /**
-   * El archivo en S3 no existe o no tiene datos suficientes para que el algoritmo converja.
+   * Business failure: The input data is syntactically correct but statistically insufficient
+   * (e.g., too few data points for convergence, non-normal distribution where required).
+   * <p>
+   * Maps to HTTP 422 Unprocessable Entity.
+   * </p>
    */
   // Mirar como el servicio gestiona esto, quizá mirar de generar más entradas en el logger
     // SObre todo para qué tipos de inconstiencia pueden haber y qué enviarle al front de manera más clara

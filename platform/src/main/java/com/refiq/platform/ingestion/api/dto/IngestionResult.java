@@ -1,26 +1,28 @@
 package com.refiq.platform.ingestion.api.dto;
 
 /**
- * Representa el resultado exhaustivo (sealed) de la operación de ingesta de archivos.
+ * Represents the sealed result of the file ingestion operation.
  * <p>
- * Modela el flujo de éxito o fallo sin recurrir a excepciones de control de flujo.
+ * This interface models the outcome flow (success or specific failures) without relying on
+ * control-flow exceptions, allowing the API adapter to map results directly to HTTP responses.
+ * </p>
  */
 public sealed interface IngestionResult {
 
   /**
-   * El archivo se ha subido correctamente al almacenamiento (S3).
+   * The file was successfully accepted and queued for processing.
    */
   record Success(IngestionResponse response) implements IngestionResult {}
 
   /**
-   * El archivo enviado no es válido (vacío, nombre incorrecto, etc.).
-   * Esto evita excepciones como IllegalArgumentException en la lógica de negocio.
+   * The file was rejected due to validation errors (e.g., empty file, bad request).
+   * Prevents runtime exceptions like IllegalArgumentException in business logic.
    */
   record InvalidFile(String filename, String reason) implements IngestionResult {}
 
   /**
-   * Fallo técnico al intentar guardar el archivo (S3 caído, timeout, error de I/O).
-   * Permite al controlador decidir si reintentar o devolver un 503.
+   * Technical failure preventing file storage (e.g., S3 outage, I/O error).
+   * Allows the controller to decide whether to retry or return a 503 Service Unavailable.
    */
   record StorageUnavailable(String debugInfo) implements IngestionResult {}
 }

@@ -1,25 +1,39 @@
 package com.refiq.platform.calculation.internal.adapter.plumber;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode; // Necesario para leer errores dinámicos
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResponse;
 import com.refiq.platform.calculation.internal.port.AnalysisPort;
-import com.refiq.platform.calculation.internal.service.CalculationLogEvent; // Importamos el Enum
-import java.time.Duration;
-import java.util.Map;
+import com.refiq.platform.calculation.internal.service.CalculationLogEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory; // Para timeouts básicos
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
+import java.time.Duration;
+import java.util.Map;
+
+
+/**
+ * Secondary adapter implementing communication with the R/Plumber statistical engine.
+ * <p>
+ * Responsibilities:
+ * <ul>
+ * <li>Generates S3 Presigned URLs to grant temporary access to the R container.</li>
+ * <li>Invokes the Plumber REST API.</li>
+ * <li>Translates HTTP errors (timeouts, 422, 500) into domain-specific exceptions.</li>
+ * </ul>
+ * </p>
+ */
 @Component
 public class PlumberAdapter implements AnalysisPort {
-
 
   private static final Logger log = LoggerFactory.getLogger(PlumberAdapter.class);
 
@@ -35,15 +49,38 @@ public class PlumberAdapter implements AnalysisPort {
       ObjectMapper objectMapper,
       @Value("${plumber.api.url}") String baseUrl,
       @Value("${refiq.storage.s3.bucket-name}") String bucketName,
-      @Value("${plumber.presigned.duration-minutes:10}") long durationMinutes) {
+      @Value("${plumber.presigned.duration-minutes:10}") long durationMinutes,
+      @Value("${plumber.timeout.read-seconds:60}") int readTimeoutSeconds) {
 
-    this.restClient = builder.baseUrl(baseUrl).build();
+    // 1. CONFIGURACIÓN DE TIMEOUTS
+    // Usamos SimpleClientHttpRequestFactory (JDK default) para configurar timeouts.
+    // Si usas Apache HttpClient o OkHttp, la config cambia ligeramente.
+    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+    factory.setConnectTimeout(5000); // 5s para conectar
+    factory.setReadTimeout(readTimeoutSeconds * 1000); // Tiempo máx esperando respuesta de R
+
+    this.restClient = builder
+        .baseUrl(baseUrl)
+        .requestFactory(factory) // Inyectamos la factoría con timeouts
+        .build();
+
     this.s3Presigner = s3Presigner;
     this.objectMapper = objectMapper;
     this.bucketName = bucketName;
     this.presignedUrlDuration = Duration.ofMinutes(durationMinutes);
   }
 
+
+  /**
+   * {@inheritDoc}
+   * <p>
+   * This implementation performs a synchronous HTTP POST to the R container. It handles the
+   * response manually to parse specific JSON error messages returned by Plumber.
+   * </p>
+   *
+   * @throws DataInconsistencyException If the engine returns 422 (valid request, invalid data).
+   * @throws EngineUnavailableException If the engine returns 500 or cannot be reached.
+   */
   @Override
   public CalculationResponse calculate(CalculationRequest request) {
     String presignedUrl = generatePresignedUrl(request.s3Key());
@@ -57,27 +94,46 @@ public class PlumberAdapter implements AnalysisPort {
         "test_code", safeTestCode
     );
 
-
     CalculationLogEvent.ANALYSIS_INITIATED.log(log, request.s3Key());
 
-    String rawJson = restClient.post()
+    return restClient.post()
         .uri("/calculate-ri")
         .body(body)
-        .retrieve()
-        .onStatus(status -> status.isError(), (req, res) -> {
+        .exchange((req, res) -> {
+          // Manejo manual de la respuesta (exchange) para leer el body en caso de error
+          if (res.getStatusCode().is2xxSuccessful()) {
+            String successBody = new String(res.getBody().readAllBytes());
+            CalculationLogEvent.R_RESPONSE_RECEIVED.log(log, successBody);
+            return objectMapper.readValue(successBody, CalculationResponse.class);
+          } else {
 
-          CalculationLogEvent.R_TECHNICAL_ERROR.log(log, res.getStatusCode());
-          throw new RuntimeException("Error técnico en motor R. Status: " + res.getStatusCode());
-        })
-        .body(String.class);
+            String errorBody = new String(res.getBody().readAllBytes());
+            String errorReason = extractErrorMessage(errorBody);
 
+            CalculationLogEvent.R_TECHNICAL_ERROR.log(log,
+                res.getStatusCode() + " - " + errorReason);
+
+            // Distinguimos errores de negocio (422) vs técnicos (500)
+            if (res.getStatusCode().value() == 422) {
+              throw new DataInconsistencyException(errorReason);
+            } else {
+              throw new EngineUnavailableException(
+                  "Error R (" + res.getStatusCode() + "): " + errorReason);
+            }
+          }
+        });
+  }
+
+  // Helper para sacar el mensaje "error" del JSON de R de forma segura
+  private String extractErrorMessage(String jsonBody) {
     try {
-      CalculationLogEvent.R_RESPONSE_RECEIVED.log(log, rawJson);
-      return objectMapper.readValue(rawJson, CalculationResponse.class);
-    } catch (JsonProcessingException e) {
-      // Este JSON sería uno fallido, sirve para debug
-      CalculationLogEvent.R_DESERIALIZATION_ERROR.log(log, rawJson);
-      throw new RuntimeException("Error de formato en respuesta del motor de cálculo", e);
+      JsonNode node = objectMapper.readTree(jsonBody);
+      if (node.has("error")) {
+        return node.get("error").asText();
+      }
+      return jsonBody; // Fallback si no es JSON o no tiene campo error
+    } catch (Exception e) {
+      return "Error desconocido (No JSON): " + jsonBody;
     }
   }
 
@@ -93,5 +149,20 @@ public class PlumberAdapter implements AnalysisPort {
         .build();
 
     return s3Presigner.presignGetObject(presignRequest).url().toString();
+  }
+
+  // Internal exceptions for Adapter -> Service communication
+  public static class DataInconsistencyException extends RuntimeException {
+
+    public DataInconsistencyException(String msg) {
+      super(msg);
+    }
+  }
+
+  public static class EngineUnavailableException extends RuntimeException {
+
+    public EngineUnavailableException(String msg) {
+      super(msg);
+    }
   }
 }

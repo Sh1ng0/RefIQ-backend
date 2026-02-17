@@ -22,11 +22,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Controlador REST encargado de la recepción y orquestación inicial de archivos de ingesta (CSVs).
+ * REST Controller handling the reception and orchestration of ingestion files (CSVs).
  * <p>
- * Actúa como la capa de entrada (Adapter Primario), transformando las peticiones HTTP (Multipart)
- * en objetos de dominio agnósticos. Su responsabilidad principal es garantizar que el archivo esté
- * disponible físicamente para el procesamiento asíncrono antes de liberar la petición HTTP.
+ * Acting as the Primary Adapter, it transforms HTTP Multipart requests into domain-agnostic objects.
+ * Its main responsibility is ensuring the file is physically available for asynchronous processing
+ * before releasing the HTTP connection.
+ * </p>
  */
 @RestController
 @RequestMapping("/api/ingestion")
@@ -35,25 +36,28 @@ public class IngestionController {
 
   private static final Logger log = LoggerFactory.getLogger(IngestionController.class);
 
+
+
   private final IngestionService ingestionService;
 
   /**
-   * Endpoint principal para la carga de archivos CSV.
+   * Main endpoint for CSV file upload.
    * <p>
-   * Implementa el patrón "Fire-and-Forget" (Dispara y Olvida):
+   * Implements a "Fire-and-Forget" pattern:
    * <ol>
-   * <li>Recibe el archivo y valida que no esté vacío.</li>
-   * <li>Persiste el archivo en disco temporalmente (para sobrevivir al cierre del request).</li>
-   * <li>Delega el procesamiento al servicio de dominio (asíncrono).</li>
-   * <li>Retorna inmediatamente un 202 ACCEPTED.</li>
+   * <li>Validates that the received file is not empty.</li>
+   * <li>Persists the file to a temporary disk location (to survive the request lifecycle).</li>
+   * <li>Delegates processing to the domain service (asynchronous).</li>
+   * <li>Returns a 202 ACCEPTED response immediately.</li>
    * </ol>
+   * </p>
    *
-   * @param file El archivo CSV recibido como `multipart/form-data`.
-   * @return {@link ResponseEntity} con el estado de la operación:
+   * @param file The CSV file received as `multipart/form-data`.
+   * @return {@link ResponseEntity} containing the operation result:
    * <ul>
-   * <li>202 ACCEPTED: Archivo recibido y encolado correctamente.</li>
-   * <li>400 BAD REQUEST: Archivo vacío o error de I/O al guardarlo.</li>
-   * <li>503 SERVICE UNAVAILABLE: Fallo crítico en el sistema de almacenamiento.</li>
+   * <li>202 ACCEPTED: File successfully received and queued.</li>
+   * <li>400 BAD REQUEST: File is empty or I/O error during temporary storage.</li>
+   * <li>503 SERVICE UNAVAILABLE: Critical failure in the storage system.</li>
    * </ul>
    */
   @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -83,22 +87,20 @@ public class IngestionController {
   // -------------------------------------------------------------------------
 
   /**
-   * Transforma el {@link MultipartFile} de Spring en un {@link IngestionFile} del dominio.
+   * Maps a Spring {@link MultipartFile} to a safe domain {@link IngestionFile}.
    * <p>
-   * <strong>¿Por qué copiamos el archivo?</strong><br>
-   * El {@code MultipartFile} suele ser un stream temporal asociado al ciclo de vida de la petición
-   * HTTP. Como el procesamiento se hará en otro hilo (Virtual Thread) después de que la respuesta
-   * HTTP se haya enviado, necesitamos volcar el contenido a un archivo físico temporal propio para
-   * evitar errores de "Stream Closed".
+   * <strong>Why copy the file?</strong><br>
+   * The {@code MultipartFile} input stream is tied to the HTTP request lifecycle. Since processing
+   * occurs in a separate Virtual Thread after the response is sent, the content is copied to a
+   * temporary physical file to avoid "Stream Closed" errors.
    * </p>
    * <p>
-   * Además, inyectamos el comportamiento de limpieza (cleanup callback) para que el Servicio sepa
-   * cómo borrar este archivo físico una vez termine su trabajo.
+   * A cleanup callback is injected so the Service can delete this temporary file once processing ends.
    * </p>
    *
-   * @param file El archivo multipart original.
-   * @return Un objeto de dominio seguro con referencia al archivo físico y su lógica de borrado.
-   * @throws IOException Si falla la escritura en el disco temporal.
+   * @param file The original multipart file.
+   * @return A domain-safe object referencing the temporary file and its cleanup logic.
+   * @throws IOException If writing to the temporary disk location fails.
    */
   private IngestionFile mapToSafeDomainFile(MultipartFile file) throws IOException {
 

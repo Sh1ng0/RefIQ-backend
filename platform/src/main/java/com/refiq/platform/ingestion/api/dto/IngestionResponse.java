@@ -4,10 +4,10 @@ package com.refiq.platform.ingestion.api.dto;
 import java.util.UUID;
 
 /**
- * Datos de confirmación tras una subida exitosa.
+ * Public confirmation data returned after a successful ingestion request.
  *
- * @param fileId El identificador único (UUID) asignado al archivo en el sistema.
- * @param status Estado actual del archivo (ej: "UPLOADED", "PENDING_PROCESSING").
+ * @param fileId The unique identifier (UUID) assigned to the file for tracking.
+ * @param status The current status of the file (e.g., "UPLOADED", "PENDING_PROCESSING").
  */
 public record IngestionResponse(UUID fileId, Status status) {
 
