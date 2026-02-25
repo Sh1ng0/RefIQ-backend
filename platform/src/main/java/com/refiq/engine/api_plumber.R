@@ -117,3 +117,9 @@ function(res, data_url, p_low = 0.025, p_high = 0.975, test_code = "UNKNOWN") {
     return(list(error = paste("Error interno R:", e$message)))
   })
 }
+
+#* @get /health
+#* @serializer unboxedJSON
+function() {
+  list(status = "UP", service = "refiq-engine")
+}

@@ -1,5 +1,7 @@
 package com.refiq.platform.calculation.api.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * Represents the sealed result of the reference range calculation operation.
  * <p>
@@ -7,6 +9,13 @@ package com.refiq.platform.calculation.api.dto;
  * (Success, Invalid Request, Engine Failure, Data Inconsistency) in the controller layer.
  * </p>
  */
+
+@Schema(oneOf = {
+    CalculationResult.Success.class,
+    CalculationResult.InvalidRequest.class,
+    CalculationResult.EngineUnavailable.class,
+    CalculationResult.DataInconsistency.class
+})
 public sealed interface CalculationResult {
 
   /**

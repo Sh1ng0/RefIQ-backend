@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -19,14 +18,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-
-
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc(addFilters = false) // Desactiva seguridad para centrarse en el contrato REST
 @ActiveProfiles("test")
 @DisplayName("Calculation - Integration API (Controller)")
 class CalculationControllerIntegrationTest {
@@ -44,10 +40,12 @@ class CalculationControllerIntegrationTest {
   @DisplayName("200 OK: Should return JSON result on successful calculation")
   void shouldReturn200WhenSuccess() throws Exception {
     // GIVEN
-    var mockResponse = new CalculationResponse(
-        new CalculationResponse.LabResult("GLU", "Glucose", 95.5, "mg/dL", "70-100", "OK"),
-        null
+    var labResult = new CalculationResponse.LabResult(
+        "GLU", "Glucose", 95.5, "mg/dL", "70-100", "OK"
     );
+    // Nota: El segundo parámetro es 'parameters' (Map), puede ser null o vacío
+    var mockResponse = new CalculationResponse(labResult, null);
+
     when(calculationService.runAnalysis(any()))
         .thenReturn(new CalculationResult.Success(mockResponse));
 
@@ -58,6 +56,7 @@ class CalculationControllerIntegrationTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
+        // CORRECCIÓN: Usamos snake_case coincidiendo con @JsonProperty en CalculationResponse
         .andExpect(jsonPath("$.lab_result.reference_range").value("70-100"))
         .andExpect(jsonPath("$.lab_result.value").value(95.5));
   }
@@ -78,9 +77,9 @@ class CalculationControllerIntegrationTest {
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isServiceUnavailable())
         .andExpect(jsonPath("$.error").value("Engine Unavailable"))
-        .andExpect(jsonPath("$.debug_info").value(errorMsg));
+        // CORRECCIÓN: Buscamos dentro de 'details' según el mapToResponse del controller
+        .andExpect(jsonPath("$.details.debug_info").value(errorMsg));
   }
-
 
   @Test
   @DisplayName("422 Unprocessable Entity: Should handle data inconsistency (Business rejection)")
@@ -97,11 +96,11 @@ class CalculationControllerIntegrationTest {
     mockMvc.perform(post("/api/v1/calculations/run")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
-        .andExpect(status().isUnprocessableEntity()) // Valida el status 422
+        .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.error").value("Data Inconsistency"))
-        .andExpect(jsonPath("$.details").value(reason));
+        // CORRECCIÓN: Buscamos dentro de 'details' la clave 'details'
+        .andExpect(jsonPath("$.details.details").value(reason));
   }
-
 
   @Test
   @DisplayName("400 Bad Request: Should handle logically invalid requests")
@@ -119,6 +118,7 @@ class CalculationControllerIntegrationTest {
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error").value("Invalid Request"))
-        .andExpect(jsonPath("$.reason").value(reason));
+        // CORRECCIÓN: Buscamos dentro de 'details' la clave 'reason'
+        .andExpect(jsonPath("$.details.reason").value(reason));
   }
 }

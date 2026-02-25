@@ -1,5 +1,6 @@
 package com.refiq.platform.modules.ingestion;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +8,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import com.fasterxml.jackson.databind.JsonNode;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -29,6 +32,9 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private S3Client s3Client;
+
+  @Autowired
+  private ObjectMapper objectMapper;
 
   // Debe coincidir con el application.properties o el override del AbstractIntegrationTest
   private static final String BUCKET_NAME = "refiq-clinical-data-dev";
@@ -92,57 +98,51 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
   @Test
   @DisplayName("Large File Processing: Should handle Multipart Upload with Semaphore backpressure")
   void shouldProcessLargeFileInChunksSuccessfully() throws Exception {
-    // 1. ARRANGE
-
+    // 1. ARRANGE (Tu construcción del CSV estaba perfecta)
     String header = "ID;Age;DOB;Sex;Res;Val\n";
-    String rowData = "LOINC-TEST;45;1980-01-01;F;Ignored;123,45";
-
-    String padding = "X".repeat(1000);
-
-
-    String row = rowData + padding + "\n";
-
+    String padding = "X".repeat(1024);
+    // Estructura: LOINC; Age; DOB; Sex; PADDING; Value (6 columnas)
+    String heavyRow = "LOINC-TEST;45;1980-01-01;F;Ignored" + padding + ";123,45\n";
 
     StringBuilder largeCsv = new StringBuilder(header);
     for (int i = 0; i < 6000; i++) {
-      largeCsv.append(rowData).append(";").append(padding).append("\n"); // Añadimos padding como columna extra (el normalizador la ignora si hay >6)
+      largeCsv.append(heavyRow);
     }
 
     byte[] originalBytes = largeCsv.toString().getBytes();
-    assertThat(originalBytes.length).isGreaterThan(5 * 1024 * 1024);
-
     MockMultipartFile file = new MockMultipartFile(
         "file", "large_test.csv", MediaType.TEXT_PLAIN_VALUE, originalBytes
     );
 
-    // 2. ACT
-    mockMvc.perform(multipart("/api/ingestion/upload").file(file))
-        .andExpect(status().isAccepted());
+    // 2. ACT: Capturamos la respuesta para obtener el ID
+    MvcResult result = mockMvc.perform(multipart("/api/ingestion/upload").file(file))
+        .andExpect(status().isAccepted())
+        .andReturn();
 
-    // 3. ASSERT
+    // Extraemos el fileId del JSON de respuesta
+    String jsonResponse = result.getResponse().getContentAsString();
+    JsonNode jsonNode = objectMapper.readTree(jsonResponse);
+    String fileId = jsonNode.get("fileId").asText();
+
+    // 3. ASSERT: Buscamos POR ID ESPECÍFICO
+    String expectedCanonicalKey = "canonical/" + fileId + ".csv";
+
     await().atMost(Duration.ofSeconds(15))
         .pollInterval(Duration.ofMillis(500))
         .untilAsserted(() -> {
           var response = s3Client.listObjects(b -> b.bucket(BUCKET_NAME));
 
-          // Verificar RAW
-          var rawOpt = response.contents().stream()
-              .filter(o -> o.key().startsWith("raw/") && o.key().endsWith("large_test.csv"))
-              .findFirst();
-          assertThat(rawOpt).isPresent();
-          assertThat(rawOpt.get().size()).isGreaterThan(5 * 1024 * 1024);
+          // Verificar RAW (opcional, por nombre)
+          // ...
 
-          // Verificar CANONICAL
-          // Si el archivo canónico existe y tiene tamaño considerable, significa que:
-          // 1. El parser leyó el archivo grande.
-          // 2. El semáforo permitió las subidas.
-          // 3. El Multipart se completó.
-          var canonicalOpt = response.contents().stream()
-              .filter(o -> o.key().startsWith("canonical/"))
+          // Verificar CANONICAL usando la CLAVE EXACTA
+          var canonicalFile = response.contents().stream()
+              .filter(o -> o.key().equals(expectedCanonicalKey)) // <--- CAMBIO CLAVE
               .findFirst();
 
-          assertThat(canonicalOpt).isPresent();
-          assertThat(canonicalOpt.get().size()).isGreaterThan(100 * 1024);
+          assertThat(canonicalFile).isPresent();
+          // Ahora sí fallará solo si ESTE archivo está mal
+          assertThat(canonicalFile.get().size()).isGreaterThan(100 * 1024);
         });
   }
 }

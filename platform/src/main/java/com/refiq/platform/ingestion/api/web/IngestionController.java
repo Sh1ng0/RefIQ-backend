@@ -1,9 +1,17 @@
 package com.refiq.platform.ingestion.api.web;
 
+import com.refiq.platform.ingestion.api.dto.IngestionResponse;
 import com.refiq.platform.ingestion.api.dto.IngestionResult;
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
 import com.refiq.platform.ingestion.internal.service.IngestionService;
 
+import com.refiq.platform.shared.web.ApiError;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,19 +32,18 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * REST Controller handling the reception and orchestration of ingestion files (CSVs).
  * <p>
- * Acting as the Primary Adapter, it transforms HTTP Multipart requests into domain-agnostic objects.
- * Its main responsibility is ensuring the file is physically available for asynchronous processing
- * before releasing the HTTP connection.
+ * Acting as the Primary Adapter, it transforms HTTP Multipart requests into domain-agnostic
+ * objects. Its main responsibility is ensuring the file is physically available for asynchronous
+ * processing before releasing the HTTP connection.
  * </p>
  */
 @RestController
 @RequestMapping("/api/ingestion")
 @RequiredArgsConstructor
+@Tag(name = "Ingestion Module", description = "Endpoints for CSV upload and normalization")
 public class IngestionController {
 
   private static final Logger log = LoggerFactory.getLogger(IngestionController.class);
-
-
 
   private final IngestionService ingestionService;
 
@@ -60,11 +67,46 @@ public class IngestionController {
    * <li>503 SERVICE UNAVAILABLE: Critical failure in the storage system.</li>
    * </ul>
    */
+
+  @Operation(
+      summary = "Upload CSV file",
+      description = "Uploads a CSV file for asynchronous processing. Returns a tracking ID immediately."
+  )
+  @ApiResponses(value = {
+      @ApiResponse(
+          responseCode = "202",
+          description = "File accepted for processing",
+          content = @Content(
+              mediaType = "application/json",
+              schema = @Schema(implementation = IngestionResponse.class)
+          )
+      ),
+      @ApiResponse(
+          responseCode = "400",
+          description = "Invalid or empty file",
+          content = @Content(
+              mediaType = "application/json",
+              schema = @Schema(implementation = ApiError.class)
+          )
+      ),
+      @ApiResponse(
+          responseCode = "503",
+          description = "Storage system error",
+          content = @Content(
+              mediaType = "application/json",
+              schema = @Schema(implementation = ApiError.class)
+          )
+      )
+  })
   @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file) {
+
+  public ResponseEntity<?> upload(
+      @RequestParam("file")
+      @Schema(type = "string", format = "binary", description = "Archivo CSV raw")
+      MultipartFile file) {
 
     if (file.isEmpty()) {
-      return ResponseEntity.badRequest().body(Map.of("error", "El archivo está vacío."));
+      return ResponseEntity.badRequest().body(new ApiError("El archivo está vacío."));
     }
 
     try {
@@ -78,7 +120,7 @@ public class IngestionController {
     } catch (IOException e) {
       log.error("Error I/O en la capa web al procesar archivo temporal", e);
       return ResponseEntity.badRequest()
-          .body(Map.of("error", "Error al procesar el archivo temporal."));
+          .body(new ApiError( "Error al procesar el archivo temporal."));
     }
   }
 
@@ -95,7 +137,8 @@ public class IngestionController {
    * temporary physical file to avoid "Stream Closed" errors.
    * </p>
    * <p>
-   * A cleanup callback is injected so the Service can delete this temporary file once processing ends.
+   * A cleanup callback is injected so the Service can delete this temporary file once processing
+   * ends.
    * </p>
    *
    * @param file The original multipart file.
@@ -138,15 +181,14 @@ public class IngestionController {
    */
   private ResponseEntity<?> mapToResponse(IngestionResult result) {
     return switch (result) {
-
       case IngestionResult.Success s -> ResponseEntity.accepted().body(s.response());
 
+      // Aquí estandarizamos: Convertimos el 'reason' del record a nuestro ApiError
       case IngestionResult.InvalidFile e -> ResponseEntity.badRequest()
-          .body(Map.of("error", "Archivo inválido", "reason", e.reason()));
+          .body(new ApiError("Archivo inválido", Map.of("reason", e.reason())));
 
-      case IngestionResult.StorageUnavailable e ->
-          ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-              .body(Map.of("error", "Servicio no disponible", "debug", e.debugInfo()));
+      case IngestionResult.StorageUnavailable e -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+          .body(new ApiError("Servicio no disponible", Map.of("debug", e.debugInfo())));
     };
   }
 }

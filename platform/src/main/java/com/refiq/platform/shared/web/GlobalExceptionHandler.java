@@ -31,26 +31,31 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-  @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<Map<String, Object>> handleValidationErrors(
-      MethodArgumentNotValidException ex) {
 
-    Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
+
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  public ResponseEntity<ApiError> handleValidationErrors(MethodArgumentNotValidException ex) {
+    var errors = ex.getBindingResult().getFieldErrors().stream()
         .collect(Collectors.toMap(
             FieldError::getField,
-            error -> error.getDefaultMessage() != null ? error.getDefaultMessage()
-                : "Error de validación",
+            e -> e.getDefaultMessage() != null ? e.getDefaultMessage() : "Error de validación",
             (existing, replacement) -> existing
         ));
 
     return ResponseEntity
-        .status(HttpStatus.BAD_REQUEST)
-        .body(Map.of(
-            "error", "Error de validación en los datos enviados",
-            "details", errors
-        ));
+        .badRequest()
+        .body(new ApiError("Error de validación en los datos enviados", errors));
   }
 
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ApiError> handleMaxSizeException(MaxUploadSizeExceededException e) {
+    return ResponseEntity
+        .status(HttpStatus.EXPECTATION_FAILED)
+        .body(new ApiError("El archivo excede el tamaño máximo permitido"));
+  }
+
+  // cambiar esto a API ERROR format
   @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
   public ResponseEntity<Map<String, String>> handleMalformedJson() {
     return ResponseEntity
@@ -58,11 +63,5 @@ public class GlobalExceptionHandler {
         .body(Map.of("error", "El cuerpo de la petición (JSON) es inválido o falta."));
   }
 
-  @ExceptionHandler(MaxUploadSizeExceededException.class)
-  public ResponseEntity<Map<String, String>> handleMaxSizeException(
-      MaxUploadSizeExceededException e) {
-    return ResponseEntity
-        .status(HttpStatus.EXPECTATION_FAILED)
-        .body(Map.of("error", "El archivo excede el tamaño máximo permitido."));
-  }
+
 }
