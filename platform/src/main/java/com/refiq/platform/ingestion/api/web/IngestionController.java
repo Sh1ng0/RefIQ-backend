@@ -29,6 +29,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+// TODO limpiar el controller usando Api contract (Clase extra, valorar tradeoff)
+
 /**
  * REST Controller handling the reception and orchestration of ingestion files (CSVs).
  * <p>
@@ -38,10 +40,8 @@ import org.springframework.web.multipart.MultipartFile;
  * </p>
  */
 @RestController
-@RequestMapping("/api/ingestion")
 @RequiredArgsConstructor
-@Tag(name = "Ingestion Module", description = "Endpoints for CSV upload and normalization")
-public class IngestionController {
+public class IngestionController implements IngestionApi{
 
   private static final Logger log = LoggerFactory.getLogger(IngestionController.class);
 
@@ -68,38 +68,8 @@ public class IngestionController {
    * </ul>
    */
 
-  @Operation(
-      summary = "Upload CSV file",
-      description = "Uploads a CSV file for asynchronous processing. Returns a tracking ID immediately."
-  )
-  @ApiResponses(value = {
-      @ApiResponse(
-          responseCode = "202",
-          description = "File accepted for processing",
-          content = @Content(
-              mediaType = "application/json",
-              schema = @Schema(implementation = IngestionResponse.class)
-          )
-      ),
-      @ApiResponse(
-          responseCode = "400",
-          description = "Invalid or empty file",
-          content = @Content(
-              mediaType = "application/json",
-              schema = @Schema(implementation = ApiError.class)
-          )
-      ),
-      @ApiResponse(
-          responseCode = "503",
-          description = "Storage system error",
-          content = @Content(
-              mediaType = "application/json",
-              schema = @Schema(implementation = ApiError.class)
-          )
-      )
-  })
-  @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 
+  @Override
   public ResponseEntity<?> upload(
       @RequestParam("file")
       @Schema(type = "string", format = "binary", description = "Archivo CSV raw")
@@ -120,7 +90,7 @@ public class IngestionController {
     } catch (IOException e) {
       log.error("Error I/O en la capa web al procesar archivo temporal", e);
       return ResponseEntity.badRequest()
-          .body(new ApiError( "Error al procesar el archivo temporal."));
+          .body(new ApiError("Error al procesar el archivo temporal."));
     }
   }
 
@@ -187,8 +157,9 @@ public class IngestionController {
       case IngestionResult.InvalidFile e -> ResponseEntity.badRequest()
           .body(new ApiError("Archivo inválido", Map.of("reason", e.reason())));
 
-      case IngestionResult.StorageUnavailable e -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-          .body(new ApiError("Servicio no disponible", Map.of("debug", e.debugInfo())));
+      case IngestionResult.StorageUnavailable e ->
+          ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+              .body(new ApiError("Servicio no disponible", Map.of("debug", e.debugInfo())));
     };
   }
 }
