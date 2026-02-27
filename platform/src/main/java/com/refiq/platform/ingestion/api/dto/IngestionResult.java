@@ -1,5 +1,7 @@
 package com.refiq.platform.ingestion.api.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * Represents the sealed result of the file ingestion operation.
  * <p>
@@ -7,6 +9,13 @@ package com.refiq.platform.ingestion.api.dto;
  * control-flow exceptions, allowing the API adapter to map results directly to HTTP responses.
  * </p>
  */
+
+// IMPORTANTE: Le decimos a Swagger cuáles son las implementaciones posibles
+@Schema(oneOf = {
+    IngestionResult.Success.class,
+    IngestionResult.InvalidFile.class,
+    IngestionResult.StorageUnavailable.class
+})
 public sealed interface IngestionResult {
 
   /**
