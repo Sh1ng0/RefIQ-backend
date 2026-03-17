@@ -1,12 +1,23 @@
 package com.refiq.platform.modules.ingestion;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.refiq.platform.RefIqPlatformApplication;
+import com.refiq.platform.auth.internal.security.JwtAuthenticationFilter;
+import com.refiq.platform.auth.internal.security.JwtProvider;
+import com.refiq.platform.support.security.TestSecurityConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,11 +35,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@AutoConfigureMockMvc(addFilters = false)
+//@AutoConfigureMockMvc(addFilters = false)
+//@Import(TestSecurityConfig.class)
+@AutoConfigureMockMvc
 class IngestionIntegrationTest extends AbstractIntegrationTest {
+
 
   @Autowired
   private MockMvc mockMvc;
+
 
   @Autowired
   private S3Client s3Client;

@@ -2,28 +2,29 @@ package com.refiq.platform.auth.api.dto;
 
 
 /**
- * Representa el resultado exhaustivo (sealed) de una operación de registro.
+ * A sealed interface representing the exhaustive set of possible outcomes for a user registration operation.
  * <p>
- * Esta interfaz sellada permite manejar el flujo de éxito o fallo de negocio mediante coincidencia
- * de patrones (Pattern Matching), eliminando la necesidad de excepciones para casos esperados como
- * duplicidad de emails.
+ * By utilizing a sealed hierarchy, this construct enables safe and exhaustive pattern matching
+ * at the controller level. This Data-Oriented Programming (DOP) approach eliminates the need
+ * to use exceptions for expected business logic deviations, such as attempting to register
+ * with an email address that is already in use.
+ * </p>
  */
 public sealed interface RegistrationResult {
 
-
   /**
-   * Representa un registro exitoso.
+   * Represents a successfully completed registration process.
    *
-   * @param response Los datos de confirmación para el cliente.
+   * @param response The confirmation data and details intended for the client.
    */
   record Success(RegistrationResponse response) implements RegistrationResult {
 
   }
 
   /**
-   * Representa un fallo debido a que el email ya existe en el sistema.
+   * Represents a registration failure caused by a conflicting email address that already exists in the system.
    *
-   * @param email El email que causó el conflicto.
+   * @param email The conflicting email address that triggered the failure.
    */
   record EmailAlreadyExists(String email) implements RegistrationResult {
 

@@ -7,15 +7,16 @@ import jakarta.validation.constraints.Size;
 
 
 /**
- * DTO que representa la solicitud de registro de un nuevo usuario.
+ * Data Transfer Object (DTO) representing a new user registration request.
  * <p>
- * Contiene las validaciones de formato necesarias para garantizar la integridad y seguridad de las
- * credenciales antes de procesarlas.
+ * Incorporates necessary validation constraints to ensure the integrity and security
+ * of user credentials before processing by the service layer.
+ * </p>
  *
- * @param email    Correo electrónico del usuario. Debe tener un formato válido.
- * @param password Contraseña del usuario. Debe cumplir con la política de seguridad: mínimo 8
- *                 caracteres, al menos una mayúscula, una minúscula, un número y un carácter
- *                 especial (@#$%^&+=!).
+ * @param email    The user's email address. Must adhere to a valid email format.
+ * @param password The user's chosen password. Must comply with the strict security policy:
+ * minimum of 8 characters, containing at least one uppercase letter,
+ * one lowercase letter, one digit, and one special character (@#$%^&+=!).
  */
 public record RegisterUserRequest(
 

@@ -12,6 +12,6 @@ public class RefIqPlatformApplication {
 
 
 
-  // Plantearse si normalizar todas las estrategias de test a Arrange Act Assert o Given When Then
+
 
 }
