@@ -17,7 +17,7 @@ public record ApiError(
     @Schema(description = "Error code or short description")
     String error,
 
-    // ¡Adiós al example hardcodeado!
+
     @Schema(description = "Additional details (optional)")
     Map<String, String> details
 ) {

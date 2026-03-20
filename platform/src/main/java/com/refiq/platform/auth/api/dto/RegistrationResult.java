@@ -1,6 +1,8 @@
 package com.refiq.platform.auth.api.dto;
 
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * A sealed interface representing the exhaustive set of possible outcomes for a user registration operation.
  * <p>
@@ -10,6 +12,10 @@ package com.refiq.platform.auth.api.dto;
  * with an email address that is already in use.
  * </p>
  */
+@Schema(oneOf = {
+    RegistrationResult.Success.class,
+    RegistrationResult.EmailAlreadyExists.class
+})
 public sealed interface RegistrationResult {
 
   /**

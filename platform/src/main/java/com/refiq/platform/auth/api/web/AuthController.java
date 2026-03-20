@@ -7,6 +7,7 @@ import com.refiq.platform.auth.api.dto.RegisterUserRequest;
 import com.refiq.platform.auth.api.dto.RegistrationResult;
 import com.refiq.platform.auth.internal.service.AuthService;
 
+import com.refiq.platform.shared.web.ApiError;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 
+// DEBT SWAGGER
+
 /**
  * REST controller responsible for user authentication and registration management.
  * <p>
@@ -30,7 +33,7 @@ import java.util.Map;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Profile({"!test", "security"})
-public class AuthController {
+public class AuthController implements AuthApi{
 
   private final AuthService authService;
 
@@ -60,7 +63,7 @@ public class AuthController {
       case RegistrationResult.Success s -> ResponseEntity.ok(s.response());
 
       case RegistrationResult.EmailAlreadyExists e -> ResponseEntity.status(409)
-          .body(Map.of("error", "El email " + e.email() + " ya está registrado."));
+          .body(new ApiError("El email " + e.email() + " ya está registrado."));
     };
   }
 
@@ -86,11 +89,11 @@ public class AuthController {
 
       case LoginResult.InvalidCredentials ic ->
           ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-              .body(Map.of("error", "Credenciales inválidas. Comprueba tu email y contraseña."));
+              .body(new ApiError("Credenciales inválidas. Comprueba tu email y contraseña."));
 
       case LoginResult.TooManyRequests tmr ->
           ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-              .body(Map.of("error", tmr.message()));
+              .body(new ApiError(tmr.message()));
     };
   }
 
@@ -108,7 +111,8 @@ public class AuthController {
    */
   @PostMapping("/logout")
   public ResponseEntity<Void> logout(Authentication authentication) {
-    // Al pasar por el filtro, Spring ya inyectó el UUID en el Principal
+    // DEBT
+    // Mirar como gestionar esto para auditoría del logout
     if (authentication != null && authentication.getPrincipal() instanceof UUID userId) {
       authService.logout(userId);
     }

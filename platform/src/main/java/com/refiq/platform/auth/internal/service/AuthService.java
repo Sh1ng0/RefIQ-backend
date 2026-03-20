@@ -121,6 +121,7 @@ public class AuthService {
   }
 
   public void logout(UUID userId) {
+    // DEBT
     // En el futuro, aquí insertaríamos el token en una lista negra (Redis).
     // Por ahora, solo dejamos constancia para la auditoría.
     AuthLogEvent.LOGOUT_SUCCESS.log(log, userId);
