@@ -1,5 +1,5 @@
 services:
-  # --- TU APP (NUEVO) ---
+
   app:
     build: .
     container_name: refiq-app
@@ -52,14 +52,14 @@ services:
       - localstack_data:/var/lib/localstack
 
     # --- R Engine ---
-    # --- R Engine ---
+
   r-engine:
     build: ./src/main/java/com/refiq/engine
     container_name: refiq-engine
     ports:
       - "8000:8000"
     volumes:
-      # Montar el script para editar sin reconstruir en dev
+
       - ./src/main/java/com/refiq/engine/api_plumber.R:/app/api_plumber.R
 
 volumes:
