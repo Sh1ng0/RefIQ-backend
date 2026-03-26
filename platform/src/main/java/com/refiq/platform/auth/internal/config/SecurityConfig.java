@@ -1,28 +1,39 @@
 package com.refiq.platform.auth.internal.config;
 
+import com.refiq.platform.auth.internal.security.JwtAuthenticationFilter;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
+
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
+@Profile({"!test", "security"})
 class SecurityConfig {
+
+
+  private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+  @Value("${refiq.security.cors.allowed-origins}")
+  private List<String> allowedOrigins;
+
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -30,21 +41,25 @@ class SecurityConfig {
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .csrf(AbstractHttpConfigurer::disable)
 
-        .httpBasic(withDefaults())
+        // El estado lo maneja el token, no el servidor
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
         .authorizeHttpRequests(auth -> auth
 
-            .requestMatchers("/api/register").permitAll()
+            .requestMatchers("/api/register", "/api/login").permitAll()
 
             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
             .requestMatchers("/actuator/health/**").permitAll()
 
             .anyRequest().authenticated()
-        );
+        )
+        // Enganchamos nuestro filtro justo antes del filtro estándar de validación de usuarios
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
   }
+
 
   /**
    * Multi front end dev ports in case we have multiple front end proposals.
@@ -54,44 +69,21 @@ class SecurityConfig {
     CorsConfiguration configuration = new CorsConfiguration();
 
 
-    configuration.setAllowedOrigins(List.of(
-        "http://localhost:4321",
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:4200"
-    ));
-
+    configuration.setAllowedOrigins(allowedOrigins);
 
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-
-
     configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
-
-    // Cookie stuff
     configuration.setAllowCredentials(true);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", configuration); // Aplica a toda la API
+    source.registerCorsConfiguration("/**", configuration);
     return source;
   }
 
-  /**
-   * Harcoded user for dev This let's the front log in on protected endpoins
-   * http://localhost:8080/swagger-ui.html
-   */
-  @Bean
-  public UserDetailsService userDetailsService() {
-    UserDetails user = User.builder()
-        .username("admin")
-        .password(passwordEncoder().encode("admin123"))
-        .roles("USER")
-        .build();
-
-    return new InMemoryUserDetailsManager(user);
-  }
 
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
   }
+
 }

@@ -1,54 +1,130 @@
 package com.refiq.platform.auth.internal.service;
 
+import com.refiq.platform.auth.api.dto.LoginRequest;
+import com.refiq.platform.auth.api.dto.LoginResponse;
+import com.refiq.platform.auth.api.dto.LoginResult;
 import com.refiq.platform.auth.api.dto.RegisterUserRequest;
 import com.refiq.platform.auth.api.dto.RegistrationResponse;
 import com.refiq.platform.auth.api.dto.RegistrationResult;
 
 import com.refiq.platform.auth.internal.domain.Credential;
 import com.refiq.platform.auth.internal.repository.CredentialRepository;
+import com.refiq.platform.auth.internal.security.JwtProvider;
+import com.refiq.platform.auth.internal.security.LoginRateLimiter;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
+/**
+ * Core service responsible for orchestrating user authentication and registration workflows.
+ * <p>
+ * This service operates within a stateless architecture, utilizing JSON Web Tokens (JWT)
+ * for authorization. It strictly adheres to Data-Oriented Programming (DOP) principles
+ * by returning sealed interface result types (e.g., {@link RegistrationResult}, {@link LoginResult})
+ * instead of throwing exceptions for business logic deviations (such as invalid credentials or rate limits).
+ * </p>
+ * <p>
+ * Key responsibilities include:
+ * <ul>
+ * <li>Secure user registration with password hashing.</li>
+ * <li>Authentication verification against persisted credentials.</li>
+ * <li>Brute-force mitigation via in-memory rate limiting prior to database access.</li>
+ * <li>Delegation of JWT generation upon successful authentication.</li>
+ * </ul>
+ * </p>
+ * <p>
+ * <b>Profile Configuration:</b> Active by default in normal execution ({@code !test}).
+ * In testing environments, this component is excluded to prevent security context pollution
+ * across other modules, unless the {@code security} profile is explicitly activated.
+ * </p>
+ */
 @Service
 @RequiredArgsConstructor
-public class AuthService { // Only controller can see this
+@Profile({"!test", "security"})
+public class AuthService {
 
 
-    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+  private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-    private final CredentialRepository credentialRepository;
+  private final CredentialRepository credentialRepository;
 
-    private final PasswordEncoder passwordEncoder;
+  private final PasswordEncoder passwordEncoder;
 
+  private final JwtProvider jwtProvider;
 
-    @Transactional
-    public RegistrationResult register(RegisterUserRequest request) {
-        // Classic SLFJ4 debugging
-        log.debug("Procesando solicitud de registro para: {}", request.email());
+  private final LoginRateLimiter loginRateLimiter;
 
 
-        if (credentialRepository.existsByEmail(request.email())) {
-            AuthLogEvent.REGISTRATION_FAILED_EMAIL_EXISTS.log(log, request.email());
-            return new RegistrationResult.EmailAlreadyExists(request.email());
-        }
+  @Transactional
+  public RegistrationResult register(RegisterUserRequest request) {
+    // Classic SLFJ4 debugging
+    log.debug("Procesando solicitud de registro para: {}", request.email());
 
-
-        var newCredential = Credential.builder()
-                .email(request.email())
-                .passwordHash(passwordEncoder.encode(request.password()))
-                .build();
-
-        var saved = credentialRepository.save(newCredential);
-
-        // Audit Log, our own logger for security, centralized logging aligned with DOP principles
-        AuthLogEvent.USER_REGISTERED.log(log, saved.getEmail(), saved.getId());
-
-        return new RegistrationResult.Success(
-                new RegistrationResponse("Usuario registrado correctamente", saved.getId().toString())
-        );
+    if (credentialRepository.existsByEmail(request.email())) {
+      AuthLogEvent.REGISTRATION_FAILED_EMAIL_EXISTS.log(log, request.email());
+      return new RegistrationResult.EmailAlreadyExists(request.email());
     }
+
+    var newCredential = Credential.builder()
+        .email(request.email())
+        .passwordHash(passwordEncoder.encode(request.password()))
+        .build();
+
+    var saved = credentialRepository.save(newCredential);
+
+    AuthLogEvent.USER_REGISTERED.log(log, saved.getEmail(), saved.getId());
+
+    return new RegistrationResult.Success(
+        new RegistrationResponse("Usuario registrado correctamente", saved.getId().toString())
+    );
+  }
+
+  /**
+   * Orquesta el flujo de autenticación. Es de solo lectura porque no modificamos la base de datos,
+   * lo que optimiza la transacción.
+   */
+  @Transactional
+  public LoginResult login(LoginRequest request) {
+
+    log.debug("Procesando solicitud de login para: {}", request.email());
+
+    if (!loginRateLimiter.tryConsume(request.email())) {
+      AuthLogEvent.LOGIN_BLOCKED_RATE_LIMIT.log(log, request.email());
+      return new LoginResult.TooManyRequests(
+          "Demasiados intentos fallidos. Por favor, espera 15 minutos.");
+    }
+
+    var credentialOpt = credentialRepository.findByEmail(request.email());
+    if (credentialOpt.isEmpty()) {
+      AuthLogEvent.LOGIN_FAILED_INVALID_CREDENTIALS.log(log, request.email());
+      return new LoginResult.InvalidCredentials();
+    }
+    var credential = credentialOpt.get();
+
+    // Error genérico por temas de seguridad
+    if (!passwordEncoder.matches(request.password(), credential.getPasswordHash())) {
+      AuthLogEvent.LOGIN_FAILED_INVALID_CREDENTIALS.log(log, request.email());
+      return new LoginResult.InvalidCredentials();
+    }
+
+    String token = jwtProvider.generateToken(credential.getId());
+
+    AuthLogEvent.LOGIN_SUCCESS.log(log, credential.getId());
+    return new LoginResult.Success(new LoginResponse(token));
+
+  }
+
+  public void logout(UUID userId) {
+    // DEBT
+    // En el futuro, aquí insertaríamos el token en una lista negra (Redis).
+    // Por ahora, solo dejamos constancia para la auditoría.
+    AuthLogEvent.LOGOUT_SUCCESS.log(log, userId);
+  }
+
 }

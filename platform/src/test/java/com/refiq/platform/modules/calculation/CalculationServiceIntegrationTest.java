@@ -89,7 +89,7 @@ class CalculationServiceIntegrationTest {
     assertThat(success.response().labResult().referenceRange()).isEqualTo("70-100");
     assertThat(success.response().labResult().value()).isEqualTo(95.5);
 
-    // Verificamos que se enviaron los defaults normalizados por el Record (0.025 y 0.975)
+
     verify(postRequestedFor(urlEqualTo("/calculate-ri"))
         .withRequestBody(containing("\"p_low\":0.025"))
         .withRequestBody(containing("\"p_high\":0.975"))
@@ -105,7 +105,7 @@ class CalculationServiceIntegrationTest {
 
     stubFor(post(urlEqualTo("/calculate-ri"))
         .willReturn(aResponse()
-            .withStatus(422) // Unprocessable Entity
+            .withStatus(422)
             .withHeader("Content-Type", "application/json")
             .withBody(errorJson)));
 
@@ -155,7 +155,7 @@ class CalculationServiceIntegrationTest {
   @DisplayName("Network Timeout: Should gracefully handle R engine latency")
   void shouldReturnEngineUnavailableOnTimeout() {
     // GIVEN
-    // Configuramos WireMock para tardar 3 segundos, pero el timeout del cliente es 2s (ver @DynamicPropertySource)
+
     stubFor(post(urlEqualTo("/calculate-ri"))
         .willReturn(aResponse()
             .withStatus(200)

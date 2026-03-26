@@ -52,16 +52,14 @@ public class PlumberAdapter implements AnalysisPort {
       @Value("${plumber.presigned.duration-minutes:10}") long durationMinutes,
       @Value("${plumber.timeout.read-seconds:60}") int readTimeoutSeconds) {
 
-    // 1. CONFIGURACIÓN DE TIMEOUTS
-    // Usamos SimpleClientHttpRequestFactory (JDK default) para configurar timeouts.
-    // Si usas Apache HttpClient o OkHttp, la config cambia ligeramente.
+
     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-    factory.setConnectTimeout(5000); // 5s para conectar
-    factory.setReadTimeout(readTimeoutSeconds * 1000); // Tiempo máx esperando respuesta de R
+    factory.setConnectTimeout(5000);
+    factory.setReadTimeout(readTimeoutSeconds * 1000);
 
     this.restClient = builder
         .baseUrl(baseUrl)
-        .requestFactory(factory) // Inyectamos la factoría con timeouts
+        .requestFactory(factory)
         .build();
 
     this.s3Presigner = s3Presigner;
@@ -100,7 +98,7 @@ public class PlumberAdapter implements AnalysisPort {
         .uri("/calculate-ri")
         .body(body)
         .exchange((req, res) -> {
-          // Manejo manual de la respuesta (exchange) para leer el body en caso de error
+
           if (res.getStatusCode().is2xxSuccessful()) {
             String successBody = new String(res.getBody().readAllBytes());
             CalculationLogEvent.R_RESPONSE_RECEIVED.log(log, successBody);
@@ -113,7 +111,7 @@ public class PlumberAdapter implements AnalysisPort {
             CalculationLogEvent.R_TECHNICAL_ERROR.log(log,
                 res.getStatusCode() + " - " + errorReason);
 
-            // Distinguimos errores de negocio (422) vs técnicos (500)
+
             if (res.getStatusCode().value() == 422) {
               throw new DataInconsistencyException(errorReason);
             } else {
@@ -124,14 +122,13 @@ public class PlumberAdapter implements AnalysisPort {
         });
   }
 
-  // Helper para sacar el mensaje "error" del JSON de R de forma segura
   private String extractErrorMessage(String jsonBody) {
     try {
       JsonNode node = objectMapper.readTree(jsonBody);
       if (node.has("error")) {
         return node.get("error").asText();
       }
-      return jsonBody; // Fallback si no es JSON o no tiene campo error
+      return jsonBody; // Fallback
     } catch (Exception e) {
       return "Error desconocido (No JSON): " + jsonBody;
     }
@@ -151,7 +148,7 @@ public class PlumberAdapter implements AnalysisPort {
     return s3Presigner.presignGetObject(presignRequest).url().toString();
   }
 
-  // Internal exceptions for Adapter -> Service communication
+
   public static class DataInconsistencyException extends RuntimeException {
 
     public DataInconsistencyException(String msg) {

@@ -1,12 +1,16 @@
 package com.refiq.platform.modules.ingestion;
 
 
-
+import com.refiq.platform.RefIqPlatformApplication;
 import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -21,13 +25,27 @@ import java.io.IOException;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
 /**
- * Base class for integration tests that require AWS infrastructure (S3).
- * Manages the lifecycle of the LocalStack container and property injection.
+ * Base class for integration tests that require AWS infrastructure (S3). Manages the lifecycle of
+ * the LocalStack container and property injection.
  */
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    classes = RefIqPlatformApplication.class, // <-- AQUÍ ESTÁ LA MAGIA
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
+)
+@ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
 
+  @SpringBootConfiguration
+  @EnableAutoConfiguration
+  @ComponentScan(basePackages = {
+      "com.refiq.platform.modules.ingestion", // SOLO vemos Ingestión
+      "com.refiq.platform.support"            // y la seguridad muda
+  })
+  static class IngestionTestContext {
+    // Al arrancar con esta clase en lugar de con RefIqPlatformApplication,
+    // Spring no tiene ni idea de que la carpeta "auth" existe.
+  }
 
   private static final Logger log = LoggerFactory.getLogger(AbstractIntegrationTest.class);
   private static final String BUCKET_NAME = "refiq-clinical-data-dev";
@@ -55,7 +73,7 @@ public abstract class AbstractIntegrationTest {
 
   @DynamicPropertySource
   static void overrideConfiguration(DynamicPropertyRegistry registry) {
-    // Para Java, LocalStack sigue estando en localhost (vía puerto mapeado aleatorio)
+
     registry.add("refiq.storage.s3.endpoint", () -> localStack.getEndpointOverride(S3).toString());
     registry.add("refiq.storage.s3.region", localStack::getRegion);
     registry.add("aws.accessKeyId", localStack::getAccessKey);
@@ -64,14 +82,13 @@ public abstract class AbstractIntegrationTest {
 
     registry.add("refiq.storage.s3.presigned-endpoint", () -> "http://s3.localstack:4566");
 
-    // Inyectamos la URL del contenedor R para el PlumberAdapter
     registry.add("plumber.api.url", () ->
         "http://" + rEngine.getHost() + ":" + rEngine.getMappedPort(8000));
   }
 
   /**
-   * Inicialización de recursos dentro de LocalStack antes de que corran los tests.
-   * Crea el bucket necesario para que la aplicación no falle al subir.
+   * Inicialización de recursos dentro de LocalStack antes de que corran los tests. Crea el bucket
+   * necesario para que la aplicación no falle al subir.
    */
   @BeforeAll
   static void beforeAll() throws IOException, InterruptedException {
