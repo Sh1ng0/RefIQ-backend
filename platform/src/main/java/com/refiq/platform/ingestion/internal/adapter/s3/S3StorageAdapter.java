@@ -1,8 +1,6 @@
 package com.refiq.platform.ingestion.internal.adapter.s3;
 
-import static org.springframework.cglib.core.CollectionUtils.bucket;
 
-import com.refiq.platform.ingestion.internal.domain.IngestionFile;
 import com.refiq.platform.ingestion.internal.port.StoragePort;
 import java.util.List;
 import java.util.Map;
@@ -18,17 +16,15 @@ import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-import java.io.IOException;
-import java.io.InputStream;
+
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 
 /**
  * Secondary adapter implementing file persistence using AWS S3.
  * <p>
- * This class fulfills the {@link StoragePort} contract, handling low-level interactions with
- * the S3 SDK, resource management (stream closing), and multipart upload orchestration.
+ * This class fulfills the {@link StoragePort} contract, handling low-level interactions with the S3
+ * SDK, resource management (stream closing), and multipart upload orchestration.
  * </p>
  */
 @Component
@@ -42,50 +38,21 @@ public class S3StorageAdapter implements StoragePort {
   @Value("${refiq.storage.s3.bucket-name}")
   private String bucketName;
 
-
-  @Override
-  @Deprecated
-  public String upload(IngestionFile file, String uniqueKey) {
-
-    PutObjectRequest request = PutObjectRequest.builder()
-        .bucket(bucketName)
-        .key(uniqueKey)
-        .contentType(file.contentType())
-        .build();
-
-    // Aquí es donde garantizamos que el stream (abierto en el Controller) se cierra.
-    // El try-with-resources asegura el .close() automático al terminar el bloque.
-    try (InputStream streamToClose = file.openStream()) {
-
-      // AWS SDK v2 requiere conocer el tamaño para optimizar la transferencia (Content-Length)
-      RequestBody body = RequestBody.fromInputStream(streamToClose, file.size());
-
-      s3Client.putObject(request, body);
-
-      StorageLogEvent.SINGLE_UPLOAD_SUCCESS.log(log, bucketName, uniqueKey);
-
-      return uniqueKey;
-
-    } catch (IOException e) {
-      throw new RuntimeException("Error de I/O gestionando el stream del archivo local", e);
-    } catch (Exception e) {
-
-      throw new RuntimeException("Error de comunicación con S3: " + e.getMessage(), e);
-    }
-  }
-
   // --- Métodos Multipart (Streaming) ---
 
   /**
    * {@inheritDoc}
    */
+
   @Override
-  public String initMultipartUpload(String key, String contentType) {
+  public String initMultipartUpload(String key, String contentType, Map<String, String> metadata) {
     try {
-      CreateMultipartUploadRequest request = CreateMultipartUploadRequest.builder().
-          bucket(bucketName)
-          .key(key).
-          contentType(contentType).build();
+      CreateMultipartUploadRequest request = CreateMultipartUploadRequest.builder()
+          .bucket(bucketName)
+          .key(key)
+          .contentType(contentType)
+          .metadata(metadata)
+          .build();
 
       String uploadId = s3Client.createMultipartUpload(request).uploadId();
 
@@ -95,7 +62,6 @@ public class S3StorageAdapter implements StoragePort {
     } catch (Exception e) {
       throw new RuntimeException("Error iniciando multipart upload: " + e.getMessage(), e);
     }
-
   }
 
   /**
@@ -132,8 +98,8 @@ public class S3StorageAdapter implements StoragePort {
    * {@inheritDoc}
    * <p>
    * <strong>Note:</strong> S3 strictly requires the list of completed parts to be sorted by
-   * part number in ascending order. This implementation sorts the provided map before sending
-   * the request.
+   * part number in ascending order. This implementation sorts the provided map before sending the
+   * request.
    * </p>
    */
   @Override
@@ -167,13 +133,13 @@ public class S3StorageAdapter implements StoragePort {
       throw new RuntimeException("Error finalizando multipart upload: " + e.getMessage(), e);
     }
 
-    }
+  }
 
   /**
    * {@inheritDoc}
    * <p>
-   * Implemented as a "Best Effort" operation. If the abort fails (e.g., network issue),
-   * it logs the error but suppresses the exception to avoid masking the original failure cause.
+   * Implemented as a "Best Effort" operation. If the abort fails (e.g., network issue), it logs the
+   * error but suppresses the exception to avoid masking the original failure cause.
    * </p>
    */
   @Override
@@ -192,7 +158,6 @@ public class S3StorageAdapter implements StoragePort {
       StorageLogEvent.ABORT_FAILED.log(log, e.getMessage());
     }
   }
-
 
 
 }

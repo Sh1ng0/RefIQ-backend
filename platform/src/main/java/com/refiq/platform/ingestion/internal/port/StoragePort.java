@@ -14,11 +14,6 @@ import java.util.Map;
 public interface StoragePort {
 
 
-  @Deprecated
-  String upload(IngestionFile file, String uniqueKey);
-
-
-
   /**
    * Initiates a multipart upload transaction.
    * <p>
@@ -29,7 +24,7 @@ public interface StoragePort {
    * @param contentType The MIME type of the file content.
    * @return A unique upload ID associated with this specific transaction.
    */
-  String initMultipartUpload(String key, String contentType);
+  String initMultipartUpload(String key, String contentType, Map<String, String> metadata);
 
 
   /**

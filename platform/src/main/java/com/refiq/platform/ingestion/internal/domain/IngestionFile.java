@@ -7,27 +7,23 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * Domain-agnostic representation of an ingestion file.
+ * Domain representation of a file pending ingestion into the Data Lake.
  * <p>
- * This record encapsulates file metadata and a mechanism to access its content, decoupling
- * the domain logic from infrastructure details (like HTTP Multipart files).
- * </p>
- * <p>
- * It uses a {@link Supplier} for the input stream to support multiple reads (e.g., uploading
- * the raw file to storage first, and then reading it again for processing) without exhausting
- * the stream.
+ * This record decouples the core routing logic from Spring Web components (like MultipartFile).
+ * It uses functional interfaces ({@link Supplier}, {@link Runnable}) to provide lazy access
+ * to the file stream and explicit resource cleanup once the transfer is complete.
  * </p>
  *
- * @param filename        The original name of the file.
- * @param contentProvider A supplier that provides a fresh {@link InputStream} to read the file content.
- * Must not be null.
- * @param size            The size of the file in bytes.
- * @param contentType     The MIME type of the file (e.g., "text/csv").
- * @param cleanupCallback An optional hook to release resources (e.g., deleting temporary files on disk)
- * after the ingestion process is complete.
+ * @param filename        The original name of the file provided by the client.
+ * @param analyte         The validated clinical analyte (determines the S3 destination folder).
+ * @param contentProvider A supplier that provides a fresh {@link InputStream} for the file content.
+ * @param size            The total size of the file in bytes.
+ * @param contentType     The MIME type of the file.
+ * @param cleanupCallback A callback executed after processing to release physical resources.
  */
 public record IngestionFile(
     String filename,
+    Analyte analyte,
     Supplier<InputStream> contentProvider, // De input stream a supplier para el tema del raw s2
     long size,
     String contentType,
@@ -40,6 +36,8 @@ public record IngestionFile(
     if (filename == null || filename.isBlank()) {
       throw new IllegalArgumentException("El nombre del archivo no puede estar vacío");
     }
+
+    Objects.requireNonNull(analyte, "El analito es obligatorio y debe ser válido");
 
     if (size < 0) {
       throw new IllegalArgumentException("El tamaño del archivo no puede ser negativo");
