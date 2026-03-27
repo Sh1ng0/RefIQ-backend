@@ -64,13 +64,13 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
         .untilAsserted(() -> {
           var response = s3Client.listObjects(b -> b.bucket(BUCKET_NAME));
 
-          // 3a. Validar que el archivo existe en la carpeta exacta: raw/ALP/
+
           S3Object rawFile = response.contents().stream()
               .filter(o -> o.key().startsWith("raw/" + analyteStr + "/"))
               .findFirst()
               .orElseThrow(() -> new AssertionError("No se encontró el archivo RAW en la carpeta del analito"));
 
-          // 3b. Validar que el CONTENIDO es idéntico al original (Byte routing perfecto)
+
           ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(b -> b.bucket(BUCKET_NAME).key(rawFile.key()));
           String downloadedContent = objectBytes.asUtf8String();
 
@@ -88,7 +88,7 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
     String heavyRow = "LOINC-TEST;45;1980-01-01;F;Ignored" + padding + ";123,45\n";
 
     StringBuilder largeCsv = new StringBuilder(header);
-    for (int i = 0; i < 6000; i++) { // ~6MB de archivo para forzar Multipart
+    for (int i = 0; i < 6000; i++) {
       largeCsv.append(heavyRow);
     }
 
@@ -97,19 +97,19 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
         "file", "large_test.csv", MediaType.TEXT_PLAIN_VALUE, originalBytes
     );
 
-    // 2. ACT: Capturamos la respuesta para obtener el ID
+
     MvcResult result = mockMvc.perform(multipart("/api/ingestion/upload")
             .file(file)
             .param("analyte", analyteStr))
         .andExpect(status().isAccepted())
         .andReturn();
 
-    // Extraemos el fileId del JSON de respuesta
+
     String jsonResponse = result.getResponse().getContentAsString();
     JsonNode jsonNode = objectMapper.readTree(jsonResponse);
     String fileId = jsonNode.get("fileId").asText();
 
-    // 3. ASSERT: Buscamos POR ID ESPECÍFICO en la nueva ruta de Sahel
+
     String expectedKey = "raw/" + analyteStr + "/" + analyteStr + "_" + fileId + ".csv";
 
     await().atMost(Duration.ofSeconds(15))
@@ -117,7 +117,7 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
         .untilAsserted(() -> {
           var response = s3Client.listObjects(b -> b.bucket(BUCKET_NAME));
 
-          // Verificar S3 usando la CLAVE EXACTA
+
           var uploadedFile = response.contents().stream()
               .filter(o -> o.key().equals(expectedKey))
               .findFirst();

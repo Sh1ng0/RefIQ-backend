@@ -24,7 +24,7 @@ import java.util.function.Supplier;
 public record IngestionFile(
     String filename,
     Analyte analyte,
-    Supplier<InputStream> contentProvider, // De input stream a supplier para el tema del raw s2
+    Supplier<InputStream> contentProvider, // De input stream a supplier para el tema del raw s3
     long size,
     String contentType,
     Runnable cleanupCallback

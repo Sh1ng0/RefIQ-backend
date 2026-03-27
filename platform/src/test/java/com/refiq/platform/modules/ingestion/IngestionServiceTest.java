@@ -99,20 +99,20 @@ class IngestionServiceTest {
       verify(storagePort).completeMultipartUpload(anyString(), eq("up-ok"), anyMap());
       assertThat(cleanedUp.get()).isTrue();
 
-      // 1. Validar la nueva ruta de Sahel: raw/ANALYTE/ANALYTE_uuid.csv
+
       String usedKey = keyCaptor.getValue();
       assertThat(usedKey)
           .startsWith("raw/CRE/CRE_")
           .endsWith(".csv");
 
-      // 2. Verificamos que los metadatos requeridos por Data Science están presentes
+
       Map<String, String> usedMetadata = metadataCaptor.getValue();
       assertThat(usedMetadata)
           .containsEntry("original-filename", "dirty.csv")
           .containsEntry("analyte", "CRE")
           .containsKey("record-id");
 
-      // 3. Verificamos que los bytes enviados son EXACTAMENTE los recibidos
+
       ArgumentCaptor<byte[]> payloadCaptor = ArgumentCaptor.forClass(byte[].class);
       verify(storagePort, atLeastOnce()).uploadPart(anyString(), eq("up-ok"), anyInt(), payloadCaptor.capture());
 
