@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
+import com.refiq.platform.ingestion.internal.domain.Analyte;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
