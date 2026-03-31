@@ -1,17 +1,10 @@
 package com.refiq.platform.ingestion.api.web;
 
-import com.refiq.platform.ingestion.api.dto.IngestionResponse;
 import com.refiq.platform.ingestion.api.dto.IngestionResult;
+import com.refiq.platform.ingestion.internal.domain.Analyte;
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
 import com.refiq.platform.ingestion.internal.service.IngestionService;
-
 import com.refiq.platform.shared.web.ApiError;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,59 +14,32 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-// TODO limpiar el controller usando Api contract (Clase extra, valorar tradeoff)
-
 /**
- * REST Controller handling the reception and orchestration of ingestion files (CSVs).
+ * REST Controller handling the reception and orchestration of raw CSV ingestion files.
  * <p>
  * Acting as the Primary Adapter, it transforms HTTP Multipart requests into domain-agnostic
- * objects. Its main responsibility is ensuring the file is physically available for asynchronous
- * processing before releasing the HTTP connection.
+ * objects. Its main responsibilities are:
+ * <ul>
+ * <li>Validating the incoming clinical analyte against the supported {@link Analyte} enum.</li>
+ * <li>Ensuring the file is physically available on disk for asynchronous processing.</li>
+ * <li>Releasing the HTTP connection immediately with an accepted status.</li>
+ * </ul>
  * </p>
  */
 @RestController
 @RequiredArgsConstructor
-public class IngestionController implements IngestionApi{
+public class IngestionController implements IngestionApi {
 
   private static final Logger log = LoggerFactory.getLogger(IngestionController.class);
 
   private final IngestionService ingestionService;
 
-  /**
-   * Main endpoint for CSV file upload.
-   * <p>
-   * Implements a "Fire-and-Forget" pattern:
-   * <ol>
-   * <li>Validates that the received file is not empty.</li>
-   * <li>Persists the file to a temporary disk location (to survive the request lifecycle).</li>
-   * <li>Delegates processing to the domain service (asynchronous).</li>
-   * <li>Returns a 202 ACCEPTED response immediately.</li>
-   * </ol>
-   * </p>
-   *
-   * @param file The CSV file received as `multipart/form-data`.
-   * @return {@link ResponseEntity} containing the operation result:
-   * <ul>
-   * <li>202 ACCEPTED: File successfully received and queued.</li>
-   * <li>400 BAD REQUEST: File is empty or I/O error during temporary storage.</li>
-   * <li>503 SERVICE UNAVAILABLE: Critical failure in the storage system.</li>
-   * </ul>
-   */
-
-
   @Override
-  public ResponseEntity<?> upload(
-      @RequestParam("file")
-      @Schema(type = "string", format = "binary", description = "Archivo CSV raw")
-      MultipartFile file) {
+  public ResponseEntity<?> upload(MultipartFile file, String analyteStr) {
 
     if (file.isEmpty()) {
       return ResponseEntity.badRequest().body(new ApiError("El archivo está vacío."));
@@ -81,11 +47,18 @@ public class IngestionController implements IngestionApi{
 
     try {
 
-      IngestionFile domainFile = mapToSafeDomainFile(file);
+      Analyte analyte = Analyte.fromString(analyteStr)
+          .orElseThrow(() -> new IllegalArgumentException("Analito no soportado: " + analyteStr));
 
+
+      IngestionFile domainFile = mapToSafeDomainFile(file, analyte);
       IngestionResult result = ingestionService.ingest(domainFile);
 
       return mapToResponse(result);
+
+    } catch (IllegalArgumentException e) {
+
+      return ResponseEntity.badRequest().body(new ApiError(e.getMessage()));
 
     } catch (IOException e) {
       log.error("Error I/O en la capa web al procesar archivo temporal", e);
@@ -107,22 +80,23 @@ public class IngestionController implements IngestionApi{
    * temporary physical file to avoid "Stream Closed" errors.
    * </p>
    * <p>
-   * A cleanup callback is injected so the Service can delete this temporary file once processing
-   * ends.
+   * A cleanup callback is injected so the Service can delete this temporary file once the
+   * transfer to the Data Lake ends.
    * </p>
    *
-   * @param file The original multipart file.
+   * @param file    The original multipart file.
+   * @param analyte The strongly typed clinical analyte validated from the client request.
    * @return A domain-safe object referencing the temporary file and its cleanup logic.
    * @throws IOException If writing to the temporary disk location fails.
    */
-  private IngestionFile mapToSafeDomainFile(MultipartFile file) throws IOException {
+  private IngestionFile mapToSafeDomainFile(MultipartFile file, Analyte analyte) throws IOException {
 
     Path tempPath = Files.createTempFile("refiq-ingest-", ".tmp");
     file.transferTo(tempPath);
 
     return new IngestionFile(
         file.getOriginalFilename(),
-        // Supplier no soporta UNcheckedExceptions
+        analyte,
         () -> {
           try {
             return new FileInputStream(tempPath.toFile());
@@ -130,11 +104,8 @@ public class IngestionController implements IngestionApi{
             throw new java.io.UncheckedIOException("No se pudo abrir el archivo temporal", e);
           }
         },
-
         file.getSize(),
         file.getContentType(),
-
-        // 3. Callback de limpieza (se mantiene igual)
         () -> {
           try {
             Files.deleteIfExists(tempPath);
@@ -153,7 +124,7 @@ public class IngestionController implements IngestionApi{
     return switch (result) {
       case IngestionResult.Success s -> ResponseEntity.accepted().body(s.response());
 
-      // Aquí estandarizamos: Convertimos el 'reason' del record a nuestro ApiError
+
       case IngestionResult.InvalidFile e -> ResponseEntity.badRequest()
           .body(new ApiError("Archivo inválido", Map.of("reason", e.reason())));
 
