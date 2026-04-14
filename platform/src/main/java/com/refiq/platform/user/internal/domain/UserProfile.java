@@ -1,9 +1,7 @@
-package com.refiq.platform.auth.internal.domain;
+package com.refiq.platform.user.internal.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
@@ -16,28 +14,27 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
-
 @Entity
-@Table(name = "refiq_credentials")
+@Table(name = "refiq_user_profiles")
 @Getter
 @Setter
-@ToString(exclude = "passwordHash")
-// Security reasons, we don't want to print a Hash in a log by accident
+@ToString
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Credential {
+public class UserProfile {
 
-  // this gets sent to user
+  // No GeneratedValue, id comes from auth's UUID
   @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
+  @Column(name = "id", updatable = false, nullable = false)
   private UUID id;
 
-  @Column(unique = true, nullable = false, updatable = false)
-  private String email;
+  @Column(nullable = false, length = 100)
+  private String name;
 
-  @Column(nullable = false)
-  private String passwordHash;
+  // Guardamos el email como contacto de facturación o notificaciones del hospital.
+  @Column(name = "contact_email", nullable = false)
+  private String contactEmail;
 
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;

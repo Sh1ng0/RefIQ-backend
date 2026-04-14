@@ -1,6 +1,7 @@
 package com.refiq.platform.ingestion.internal.port;
 
 
+import com.refiq.platform.ingestion.internal.adapter.s3.S3StorageAdapter;
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
 import java.util.Map;
 

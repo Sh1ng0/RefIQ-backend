@@ -1,7 +1,5 @@
 package com.refiq.platform.auth.internal.service;
 
-
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -13,11 +11,11 @@ import com.refiq.platform.auth.api.dto.LoginRequest;
 import com.refiq.platform.auth.api.dto.LoginResult;
 import com.refiq.platform.auth.api.dto.RegisterUserRequest;
 import com.refiq.platform.auth.api.dto.RegistrationResult;
+import com.refiq.platform.auth.api.event.UserRegisteredEvent;
 import com.refiq.platform.auth.internal.domain.Credential;
 import com.refiq.platform.auth.internal.repository.CredentialRepository;
+import com.refiq.platform.auth.internal.security.AuthRateLimiter;
 import com.refiq.platform.auth.internal.security.JwtProvider;
-import com.refiq.platform.auth.internal.security.LoginRateLimiter;
-import com.refiq.platform.auth.internal.service.AuthService;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,40 +41,65 @@ class AuthServiceTest {
   @Mock
   private JwtProvider jwtProvider;
 
+  // Renombramos para que coincida con el nuevo servicio unificado
   @Mock
-  private LoginRateLimiter loginRateLimiter;
+  private AuthRateLimiter authRateLimiter;
+
+  @Mock
+  private ApplicationEventPublisher eventPublisher;
 
   @InjectMocks
   private AuthService authService;
 
+  private final String TEST_IP = "192.168.1.50"; // IP simulada para los tests
+
   // --- TESTS DE REGISTRO ---
+
+  @Test
+  @DisplayName("Registro: Bloqueado por Rate Limiting antes de tocar la BD")
+  void register_ShouldReturnTooManyRequests_WhenRateLimiterBlocks() {
+    // GIVEN
+    RegisterUserRequest request = new RegisterUserRequest("Spammer Org", "spammer@refiq.com", "Password123!");
+    when(authRateLimiter.tryConsumeRegister(TEST_IP)).thenReturn(false);
+
+    // WHEN
+    RegistrationResult result = authService.register(request, TEST_IP);
+
+    // THEN
+    assertThat(result).isInstanceOf(RegistrationResult.TooManyRequests.class);
+    verify(credentialRepository, never()).existsByEmail(anyString()); // La BD ni se entera
+    verify(eventPublisher, never()).publishEvent(any()); // No hay eventos
+  }
 
   @Test
   @DisplayName("Registro: Falla si el email ya existe")
   void register_ShouldReturnEmailAlreadyExists_WhenEmailIsInDb() {
     // GIVEN
-    RegisterUserRequest request = new RegisterUserRequest("test@refiq.com", "Password123!");
+    RegisterUserRequest request = new RegisterUserRequest("Test Org", "test@refiq.com", "Password123!");
+    when(authRateLimiter.tryConsumeRegister(TEST_IP)).thenReturn(true); // Simulamos que pasa el limitador
     when(credentialRepository.existsByEmail("test@refiq.com")).thenReturn(true);
 
     // WHEN
-    RegistrationResult result = authService.register(request);
+    RegistrationResult result = authService.register(request, TEST_IP);
 
     // THEN
     assertThat(result).isInstanceOf(RegistrationResult.EmailAlreadyExists.class);
-    verify(credentialRepository, never()).save(any()); // Nos aseguramos de que no intente guardar
+    verify(credentialRepository, never()).save(any());
+    verify(eventPublisher, never()).publishEvent(any());
   }
 
   @Test
-  @DisplayName("Registro: Exitoso, hashea la contraseña y devuelve Success")
+  @DisplayName("Registro: Exitoso, hashea la contraseña, dispara evento y devuelve Success")
   void register_ShouldHashPasswordAndReturnSuccess() {
     // GIVEN
-    RegisterUserRequest request = new RegisterUserRequest("nuevo@refiq.com", "Password123!");
+    RegisterUserRequest request = new RegisterUserRequest("Nuevo Org", "nuevo@refiq.com", "Password123!");
     UUID fakeId = UUID.randomUUID();
 
+    when(authRateLimiter.tryConsumeRegister(TEST_IP)).thenReturn(true); // Simulamos que pasa el limitador
     when(credentialRepository.existsByEmail("nuevo@refiq.com")).thenReturn(false);
     when(passwordEncoder.encode("Password123!")).thenReturn("hashed_password");
 
-    // Simulamos el guardado devolviendo una entidad con ID
+
     when(credentialRepository.save(any(Credential.class))).thenAnswer(invocation -> {
       Credential c = invocation.getArgument(0);
       c.setId(fakeId);
@@ -83,7 +107,7 @@ class AuthServiceTest {
     });
 
     // WHEN
-    RegistrationResult result = authService.register(request);
+    RegistrationResult result = authService.register(request, TEST_IP);
 
     // THEN
     assertThat(result).isInstanceOf(RegistrationResult.Success.class);
@@ -91,10 +115,13 @@ class AuthServiceTest {
     RegistrationResult.Success success = (RegistrationResult.Success) result;
     assertThat(success.response().userId()).isEqualTo(fakeId.toString());
 
-    // Verificamos que se guardó con la contraseña hasheada, NUNCA en texto plano
     ArgumentCaptor<Credential> credentialCaptor = ArgumentCaptor.forClass(Credential.class);
     verify(credentialRepository).save(credentialCaptor.capture());
     assertThat(credentialCaptor.getValue().getPasswordHash()).isEqualTo("hashed_password");
+
+    ArgumentCaptor<UserRegisteredEvent> eventCaptor = ArgumentCaptor.forClass(UserRegisteredEvent.class);
+    verify(eventPublisher).publishEvent(eventCaptor.capture());
+    assertThat(eventCaptor.getValue().accountId()).isEqualTo(fakeId);
   }
 
   // --- TESTS DE LOGIN ---
@@ -104,14 +131,14 @@ class AuthServiceTest {
   void login_ShouldReturnTooManyRequests_WhenRateLimiterBlocks() {
     // GIVEN
     LoginRequest request = new LoginRequest("spammer@refiq.com", "pass");
-    when(loginRateLimiter.tryConsume("spammer@refiq.com")).thenReturn(false);
+    when(authRateLimiter.tryConsumeLogin("spammer@refiq.com")).thenReturn(false); // Cambiado a tryConsumeLogin
 
     // WHEN
     LoginResult result = authService.login(request);
 
     // THEN
     assertThat(result).isInstanceOf(LoginResult.TooManyRequests.class);
-    verify(credentialRepository, never()).findByEmail(anyString()); // La BD ni se entera
+    verify(credentialRepository, never()).findByEmail(anyString());
   }
 
   @Test
@@ -119,7 +146,7 @@ class AuthServiceTest {
   void login_ShouldReturnInvalidCredentials_WhenUserNotFound() {
     // GIVEN
     LoginRequest request = new LoginRequest("fantasma@refiq.com", "pass");
-    when(loginRateLimiter.tryConsume("fantasma@refiq.com")).thenReturn(true);
+    when(authRateLimiter.tryConsumeLogin("fantasma@refiq.com")).thenReturn(true);
     when(credentialRepository.findByEmail("fantasma@refiq.com")).thenReturn(Optional.empty());
 
     // WHEN
@@ -136,7 +163,7 @@ class AuthServiceTest {
     LoginRequest request = new LoginRequest("real@refiq.com", "bad_pass");
     Credential credential = Credential.builder().email("real@refiq.com").passwordHash("hash_real").build();
 
-    when(loginRateLimiter.tryConsume("real@refiq.com")).thenReturn(true);
+    when(authRateLimiter.tryConsumeLogin("real@refiq.com")).thenReturn(true);
     when(credentialRepository.findByEmail("real@refiq.com")).thenReturn(Optional.of(credential));
     when(passwordEncoder.matches("bad_pass", "hash_real")).thenReturn(false);
 
@@ -145,7 +172,7 @@ class AuthServiceTest {
 
     // THEN
     assertThat(result).isInstanceOf(LoginResult.InvalidCredentials.class);
-    verify(jwtProvider, never()).generateToken(any()); // No se genera token
+    verify(jwtProvider, never()).generateToken(any());
   }
 
   @Test
@@ -156,7 +183,7 @@ class AuthServiceTest {
     LoginRequest request = new LoginRequest("pro@refiq.com", "good_pass");
     Credential credential = Credential.builder().id(userId).email("pro@refiq.com").passwordHash("hash_real").build();
 
-    when(loginRateLimiter.tryConsume("pro@refiq.com")).thenReturn(true);
+    when(authRateLimiter.tryConsumeLogin("pro@refiq.com")).thenReturn(true);
     when(credentialRepository.findByEmail("pro@refiq.com")).thenReturn(Optional.of(credential));
     when(passwordEncoder.matches("good_pass", "hash_real")).thenReturn(true);
     when(jwtProvider.generateToken(userId)).thenReturn("mocked.jwt.token");

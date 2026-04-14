@@ -7,14 +7,17 @@ import com.refiq.platform.auth.api.dto.RegisterUserRequest;
 import com.refiq.platform.auth.api.dto.RegistrationResponse;
 import com.refiq.platform.auth.api.dto.RegistrationResult;
 
+import com.refiq.platform.auth.api.event.UserRegisteredEvent;
 import com.refiq.platform.auth.internal.domain.Credential;
 import com.refiq.platform.auth.internal.repository.CredentialRepository;
 import com.refiq.platform.auth.internal.security.JwtProvider;
-import com.refiq.platform.auth.internal.security.LoginRateLimiter;
+import com.refiq.platform.auth.internal.security.AuthRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,10 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Core service responsible for orchestrating user authentication and registration workflows.
  * <p>
- * This service operates within a stateless architecture, utilizing JSON Web Tokens (JWT)
- * for authorization. It strictly adheres to Data-Oriented Programming (DOP) principles
- * by returning sealed interface result types (e.g., {@link RegistrationResult}, {@link LoginResult})
- * instead of throwing exceptions for business logic deviations (such as invalid credentials or rate limits).
+ * This service operates within a stateless architecture, utilizing JSON Web Tokens (JWT) for
+ * authorization. It strictly adheres to Data-Oriented Programming (DOP) principles by returning
+ * sealed interface result types (e.g., {@link RegistrationResult}, {@link LoginResult}) instead of
+ * throwing exceptions for business logic deviations (such as invalid credentials or rate limits).
  * </p>
  * <p>
  * Key responsibilities include:
@@ -58,13 +61,24 @@ public class AuthService {
 
   private final JwtProvider jwtProvider;
 
-  private final LoginRateLimiter loginRateLimiter;
+  private final AuthRateLimiter authRateLimiter;
+
+  private final ApplicationEventPublisher eventPublisher;
 
 
   @Transactional
-  public RegistrationResult register(RegisterUserRequest request) {
+  public RegistrationResult register(RegisterUserRequest request, String ipAddress) {
     // Classic SLFJ4 debugging
-    log.debug("Procesando solicitud de registro para: {}", request.email());
+
+
+    log.debug("Procesando solicitud de registro para: {} desde IP: {}", request.email(), ipAddress);
+
+    if (!authRateLimiter.tryConsumeRegister(ipAddress)) {
+      AuthLogEvent.REGISTRATION_BLOCKED_RATE_LIMIT.log(log, ipAddress); // Puedes añadir este enum a tus logs
+      return new RegistrationResult.TooManyRequests(
+          "Demasiados intentos de registro desde tu red. Por favor, espera una hora."
+      );
+    }
 
     if (credentialRepository.existsByEmail(request.email())) {
       AuthLogEvent.REGISTRATION_FAILED_EMAIL_EXISTS.log(log, request.email());
@@ -78,6 +92,14 @@ public class AuthService {
 
     var saved = credentialRepository.save(newCredential);
 
+    // EVENT STUFF
+    eventPublisher.publishEvent(new UserRegisteredEvent(
+        saved.getId(),
+        request.userName(),
+        saved.getEmail()
+    ));
+
+
     AuthLogEvent.USER_REGISTERED.log(log, saved.getEmail(), saved.getId());
 
     return new RegistrationResult.Success(
@@ -86,15 +108,18 @@ public class AuthService {
   }
 
   /**
-   * Orquesta el flujo de autenticación. Es de solo lectura porque no modificamos la base de datos,
-   * lo que optimiza la transacción.
+   * Orchestrates the authentication flow. Marked as read-only since it does not modify the database,
+   * optimizing the transaction footprint.
+   *
+   * @param request The DTO containing the login credentials.
+   * @return A sealed {@link LoginResult} representing the business outcome of the operation.
    */
-  @Transactional
+  @Transactional(readOnly = true)
   public LoginResult login(LoginRequest request) {
 
     log.debug("Procesando solicitud de login para: {}", request.email());
 
-    if (!loginRateLimiter.tryConsume(request.email())) {
+    if (!authRateLimiter.tryConsumeLogin(request.email())) {
       AuthLogEvent.LOGIN_BLOCKED_RATE_LIMIT.log(log, request.email());
       return new LoginResult.TooManyRequests(
           "Demasiados intentos fallidos. Por favor, espera 15 minutos.");

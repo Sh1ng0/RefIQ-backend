@@ -10,6 +10,8 @@ import com.refiq.platform.auth.api.dto.LoginRequest;
 import com.refiq.platform.auth.api.dto.RegisterUserRequest;
 import com.refiq.platform.auth.internal.domain.Credential;
 import com.refiq.platform.auth.internal.repository.CredentialRepository;
+import com.refiq.platform.user.internal.domain.UserProfile;
+import com.refiq.platform.user.internal.repository.UserProfileRepository; // Importamos el repo de User
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,7 +25,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Optional;
 
 @AutoConfigureMockMvc
-
 @ActiveProfiles({"test", "security"})
 @DisplayName("Auth - Integration API (End-to-End)")
 class AuthIntegrationTest extends AuthBaseIntegrationTest {
@@ -38,19 +39,23 @@ class AuthIntegrationTest extends AuthBaseIntegrationTest {
   private CredentialRepository credentialRepository;
 
   @Autowired
+  private UserProfileRepository userProfileRepository; // Inyectamos el repo para verificar el E2E completo
+
+  @Autowired
   private PasswordEncoder passwordEncoder;
 
   @BeforeEach
   void setUp() {
-
+    // Borramos ambos repos para aislar tests
+    userProfileRepository.deleteAll();
     credentialRepository.deleteAll();
   }
 
   @Test
-  @DisplayName("Registro exitoso: 200 OK y persistencia en Postgres")
+  @DisplayName("Registro exitoso: 200 OK y persistencia en Postgres (Auth + User)")
   void shouldRegisterUserSuccessfully() throws Exception {
-    // GIVEN
-    RegisterUserRequest request = new RegisterUserRequest("nuevo@refiq.com", "SuperPassword123!");
+    // GIVEN - Añadimos el nuevo parámetro "userName"
+    RegisterUserRequest request = new RegisterUserRequest("Laboratorios Central", "nuevo@refiq.com", "SuperPassword123!");
 
     // WHEN & THEN (API)
     mockMvc.perform(post("/api/register")
@@ -60,18 +65,23 @@ class AuthIntegrationTest extends AuthBaseIntegrationTest {
         .andExpect(jsonPath("$.message").exists())
         .andExpect(jsonPath("$.userId").exists());
 
-    // THEN (Base de Datos)
-    Optional<Credential> savedUser = credentialRepository.findByEmail("nuevo@refiq.com");
-    assertThat(savedUser).isPresent();
-    // Verificamos que la contraseña se guardó hasheada
-    assertThat(passwordEncoder.matches("SuperPassword123!", savedUser.get().getPasswordHash())).isTrue();
+    // THEN (Base de Datos Auth)
+    Optional<Credential> savedCredential = credentialRepository.findByEmail("nuevo@refiq.com");
+    assertThat(savedCredential).isPresent();
+    assertThat(passwordEncoder.matches("SuperPassword123!", savedCredential.get().getPasswordHash())).isTrue();
+
+    // THEN (Base de Datos User - ¡Validamos el evento asíncrono!)
+    Optional<UserProfile> savedProfile = userProfileRepository.findById(savedCredential.get().getId());
+    assertThat(savedProfile).isPresent();
+    assertThat(savedProfile.get().getName()).isEqualTo("Laboratorios Central");
+    assertThat(savedProfile.get().getContactEmail()).isEqualTo("nuevo@refiq.com");
   }
 
   @Test
   @DisplayName("Registro fallido: 409 Conflict si el email ya existe")
   void shouldReturn409WhenEmailAlreadyExists() throws Exception {
     // GIVEN
-    RegisterUserRequest request = new RegisterUserRequest("duplicado@refiq.com", "SuperPassword123!");
+    RegisterUserRequest request = new RegisterUserRequest("Duplicado Labs", "duplicado@refiq.com", "SuperPassword123!");
 
     mockMvc.perform(post("/api/register")
             .contentType(MediaType.APPLICATION_JSON)
@@ -90,7 +100,7 @@ class AuthIntegrationTest extends AuthBaseIntegrationTest {
   @DisplayName("Login exitoso: 200 OK y devuelve JWT válido")
   void shouldLoginSuccessfully() throws Exception {
     // GIVEN
-    RegisterUserRequest registerReq = new RegisterUserRequest("login@refiq.com", "SuperPassword123!");
+    RegisterUserRequest registerReq = new RegisterUserRequest("Login Labs", "login@refiq.com", "SuperPassword123!");
     mockMvc.perform(post("/api/register")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(registerReq)))
@@ -111,7 +121,7 @@ class AuthIntegrationTest extends AuthBaseIntegrationTest {
   @DisplayName("Login fallido: 401 Unauthorized con contraseña incorrecta")
   void shouldReturn401OnBadCredentials() throws Exception {
     // GIVEN
-    RegisterUserRequest registerReq = new RegisterUserRequest("seguro@refiq.com", "RealPassword123!");
+    RegisterUserRequest registerReq = new RegisterUserRequest("Seguro Labs", "seguro@refiq.com", "RealPassword123!");
     mockMvc.perform(post("/api/register")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(registerReq)))
