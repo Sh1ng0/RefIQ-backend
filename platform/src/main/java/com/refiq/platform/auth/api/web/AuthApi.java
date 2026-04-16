@@ -1,19 +1,19 @@
 package com.refiq.platform.auth.api.web;
 
-
-
 import com.refiq.platform.auth.api.dto.LoginRequest;
 import com.refiq.platform.auth.api.dto.LoginResponse;
 import com.refiq.platform.auth.api.dto.RegisterUserRequest;
 import com.refiq.platform.auth.api.dto.RegistrationResponse;
 import com.refiq.platform.shared.web.ApiError;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +27,7 @@ public interface AuthApi {
 
   @Operation(
       summary = "Registrar un nuevo usuario",
-      description = "Crea una nueva cuenta de usuario validando la robustez de la contraseña y la disponibilidad del email."
+      description = "Crea una nueva cuenta de usuario validando la robustez de la contraseña, la disponibilidad del email y limitando intentos abusivos por IP."
   )
   @ApiResponses(value = {
       @ApiResponse(
@@ -58,10 +58,26 @@ public interface AuthApi {
                   value = "{\n  \"error\": \"El email usuario@refiq.com ya está registrado.\",\n  \"details\": null\n}"
               )
           )
+      ),
+      // --- AÑADIDO: 429 PARA EL REGISTRO ---
+      @ApiResponse(
+          responseCode = "429",
+          description = "Demasiados intentos de registro desde la misma IP (Rate limiting)",
+          content = @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = ApiError.class),
+              examples = @ExampleObject(
+                  name = "TooManyRequests",
+                  value = "{\n  \"error\": \"Demasiados intentos de registro desde tu red. Por favor, espera una hora.\",\n  \"details\": null\n}"
+              )
+          )
       )
   })
   @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  ResponseEntity<?> register(@RequestBody @Valid RegisterUserRequest request);
+  ResponseEntity<?> register(
+      @RequestBody @Valid RegisterUserRequest request,
+      @Parameter(hidden = true) HttpServletRequest httpRequest // Ocultamos este parámetro a Swagger
+  );
 
 
   @Operation(

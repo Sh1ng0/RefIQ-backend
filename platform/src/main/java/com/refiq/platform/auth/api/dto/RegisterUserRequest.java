@@ -19,8 +19,13 @@ import jakarta.validation.constraints.Size;
  * minimum of 8 characters, containing at least one uppercase letter,
  * one lowercase letter, one digit, and one special character (@#$%^&+=!).
  */
-@Schema(description = "Payload para el registro de un nuevo usuario")
+@Schema(description = "Payload para el registro de un nuevo usuario/hospital")
 public record RegisterUserRequest(
+
+    @Schema(description = "Nombre del hospital o laboratorio", example = "Hospital Clinic")
+    @NotBlank(message = "El nombre del hospital es obligatorio")
+    @Size(max = 100, message = "El nombre del hospital no puede exceder los 100 caracteres")
+    String userName,
 
     @Schema(description = "Correo electrónico del usuario", example = "usuario@refiq.com")
     @NotBlank(message = "El email es obligatorio")

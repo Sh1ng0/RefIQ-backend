@@ -1,8 +1,7 @@
 package com.refiq.platform.modules.calculation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.refiq.platform.auth.internal.security.JwtAuthenticationFilter;
-import com.refiq.platform.auth.internal.security.JwtProvider;
+
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResponse;
 import com.refiq.platform.calculation.api.dto.CalculationResult;
@@ -12,17 +11,13 @@ import com.refiq.platform.support.security.TestSecurityConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
-import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
+
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
+
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 

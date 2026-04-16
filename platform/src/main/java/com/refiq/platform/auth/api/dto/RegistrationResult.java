@@ -14,7 +14,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(oneOf = {
     RegistrationResult.Success.class,
-    RegistrationResult.EmailAlreadyExists.class
+    RegistrationResult.EmailAlreadyExists.class,
+    RegistrationResult.TooManyRequests.class
+
 })
 public sealed interface RegistrationResult {
 
@@ -34,5 +36,12 @@ public sealed interface RegistrationResult {
    */
   record EmailAlreadyExists(String email) implements RegistrationResult {
 
+  }
+
+
+  /**
+   * Representa un fallo por superar el límite de peticiones (Rate Limiting).
+   */
+  record TooManyRequests(String message) implements RegistrationResult {
   }
 }

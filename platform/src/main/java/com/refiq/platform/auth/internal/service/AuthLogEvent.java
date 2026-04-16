@@ -7,6 +7,7 @@ public enum AuthLogEvent implements Loggable {
   USER_REGISTERED(LogLevel.INFO, "Nuevo usuario registrado exitosamente. Email: {}, ID: {}"),
   REGISTRATION_FAILED_EMAIL_EXISTS(LogLevel.WARN,
       "Intento de registro fallido. El email ya existe: {}"),
+  REGISTRATION_BLOCKED_RATE_LIMIT(LogLevel.WARN, "Registro bloqueado por Rate Limiting (Posible Bot). IP: {}"),
 
   // --- LOGIN ---
   LOGIN_SUCCESS(LogLevel.INFO, "Usuario autenticado correctamente. ID: {}"),

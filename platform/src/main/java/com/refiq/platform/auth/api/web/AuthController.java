@@ -8,6 +8,7 @@ import com.refiq.platform.auth.api.dto.RegistrationResult;
 import com.refiq.platform.auth.internal.service.AuthService;
 
 import com.refiq.platform.shared.web.ApiError;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 
-// DEBT SWAGGER
+
 
 /**
  * REST controller responsible for user authentication and registration management.
@@ -54,9 +55,20 @@ public class AuthController implements AuthApi{
    */
   // With Java 21 Jackson converts naturally any incoming JSON into a record leveraging the canonical constructor
   @PostMapping("/register")
-  public ResponseEntity<?> register(@RequestBody @Valid RegisterUserRequest request) {
+  public ResponseEntity<?> register(@RequestBody @Valid RegisterUserRequest request, HttpServletRequest httpRequest) {
 
-    RegistrationResult result = authService.register(request);
+
+    String ipAddress = httpRequest.getHeader("X-Forwarded-For");
+    if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+      ipAddress = httpRequest.getRemoteAddr();
+    } else {
+      ipAddress = ipAddress.split(",")[0].trim();
+    }
+
+
+    RegistrationResult result = authService.register(request, ipAddress);
+
+
 
     return switch (result) {
 
@@ -64,6 +76,10 @@ public class AuthController implements AuthApi{
 
       case RegistrationResult.EmailAlreadyExists e -> ResponseEntity.status(409)
           .body(new ApiError("El email " + e.email() + " ya está registrado."));
+
+      case RegistrationResult.TooManyRequests tmr ->
+          ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+              .body(new ApiError(tmr.message()));
     };
   }
 
@@ -118,4 +134,7 @@ public class AuthController implements AuthApi{
     }
     return ResponseEntity.ok().build();
   }
+
+  // DEBT
+  // Look into how to manage this for logout auditing in the future.
 }
