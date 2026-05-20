@@ -41,7 +41,7 @@ class AuthServiceTest {
   @Mock
   private JwtProvider jwtProvider;
 
-  // Renombramos para que coincida con el nuevo servicio unificado
+
   @Mock
   private AuthRateLimiter authRateLimiter;
 

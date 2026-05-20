@@ -12,7 +12,6 @@ import com.refiq.platform.auth.internal.domain.Credential;
 import com.refiq.platform.auth.internal.repository.CredentialRepository;
 import com.refiq.platform.auth.internal.security.JwtProvider;
 import com.refiq.platform.auth.internal.security.AuthRateLimiter;
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -95,7 +94,7 @@ public class AuthService {
     // EVENT STUFF
     eventPublisher.publishEvent(new UserRegisteredEvent(
         saved.getId(),
-        request.userName(),
+        request.name(),
         saved.getEmail()
     ));
 

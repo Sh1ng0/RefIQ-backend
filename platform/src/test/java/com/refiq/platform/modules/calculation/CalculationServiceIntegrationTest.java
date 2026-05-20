@@ -4,26 +4,55 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResult;
+import com.refiq.platform.calculation.internal.adapter.plumber.PlumberAdapter;
 import com.refiq.platform.calculation.internal.service.CalculationService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
+import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
+import org.springframework.boot.autoconfigure.web.client.RestClientAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+
+import java.net.URL;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+@SpringBootTest(classes = {
+    CalculationService.class,
+    PlumberAdapter.class
+})
+@Import({
+    RestClientAutoConfiguration.class,
+    JacksonAutoConfiguration.class,
+    HttpMessageConvertersAutoConfiguration.class
+})
 @ActiveProfiles("test")
 class CalculationServiceIntegrationTest {
 
   @Autowired
   private CalculationService calculationService;
+
+
+  @MockitoBean
+  private S3Presigner s3Presigner;
 
   private static WireMockServer wireMockServer;
 
@@ -41,15 +70,27 @@ class CalculationServiceIntegrationTest {
     }
   }
 
-  // INYECCIÓN DINÁMICA DEL PUERTO:
-  // Esto asegura que la propiedad 'plumber.api.url' apunte al WireMock levantado en este test,
-  // sobrescribiendo lo que haya en application.properties.
+  @BeforeEach
+  void setUpS3Mock() throws Exception {
+    PresignedGetObjectRequest mockPresigned = mock(PresignedGetObjectRequest.class);
+
+    when(mockPresigned.url()).thenReturn(new URL("https://mock-s3-url.com/fake-data.csv"));
+
+    when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+        .thenReturn(mockPresigned);
+  }
+
   @DynamicPropertySource
   static void configureProperties(DynamicPropertyRegistry registry) {
     registry.add("plumber.api.url", () -> wireMockServer.baseUrl());
-
     registry.add("plumber.timeout.read-seconds", () -> 2);
+
+    registry.add("refiq.storage.s3.bucket-name", () -> "test-bucket");
+    registry.add("plumber.presigned.duration-minutes", () -> 10);
   }
+
+
+
 
   @Test
   @DisplayName("Happy Path: Should correctly deserialize successful R response")
@@ -78,7 +119,6 @@ class CalculationServiceIntegrationTest {
             .withBody(responseBody)));
 
     // WHEN
-
     CalculationRequest request = new CalculationRequest("s3://bucket/valid.csv", null, null, null);
     CalculationResult result = calculationService.runAnalysis(request);
 
@@ -88,7 +128,6 @@ class CalculationServiceIntegrationTest {
 
     assertThat(success.response().labResult().referenceRange()).isEqualTo("70-100");
     assertThat(success.response().labResult().value()).isEqualTo(95.5);
-
 
     verify(postRequestedFor(urlEqualTo("/calculate-ri"))
         .withRequestBody(containing("\"p_low\":0.025"))
@@ -100,7 +139,6 @@ class CalculationServiceIntegrationTest {
   @DisplayName("Business Error (422): Should map R validation error to DataInconsistency")
   void shouldReturnDataInconsistencyWhenPlumberReturns422() {
     // GIVEN
-
     String errorJson = "{\"error\": \"Datos insuficientes para RefineR. Válidos encontrados: 5\"}";
 
     stubFor(post(urlEqualTo("/calculate-ri"))
@@ -109,7 +147,8 @@ class CalculationServiceIntegrationTest {
             .withHeader("Content-Type", "application/json")
             .withBody(errorJson)));
 
-    CalculationRequest request = new CalculationRequest("s3://bucket/empty.csv", 0.025, 0.975, "TEST-CODE");
+    CalculationRequest request = new CalculationRequest("s3://bucket/empty.csv", 0.025, 0.975,
+        "TEST-CODE");
 
     // WHEN
     CalculationResult result = calculationService.runAnalysis(request);
@@ -117,7 +156,6 @@ class CalculationServiceIntegrationTest {
     // THEN
     assertThat(result).isInstanceOf(CalculationResult.DataInconsistency.class);
     var inconsistency = (CalculationResult.DataInconsistency) result;
-
 
     assertThat(inconsistency.details())
         .contains("Datos insuficientes")
@@ -136,7 +174,8 @@ class CalculationServiceIntegrationTest {
             .withHeader("Content-Type", "application/json")
             .withBody(errorJson)));
 
-    CalculationRequest request = new CalculationRequest("s3://bucket/crash.csv", 0.025, 0.975, null);
+    CalculationRequest request = new CalculationRequest("s3://bucket/crash.csv", 0.025, 0.975,
+        null);
 
     // WHEN
     CalculationResult result = calculationService.runAnalysis(request);
@@ -144,7 +183,6 @@ class CalculationServiceIntegrationTest {
     // THEN
     assertThat(result).isInstanceOf(CalculationResult.EngineUnavailable.class);
     var error = (CalculationResult.EngineUnavailable) result;
-
 
     assertThat(error.debugInfo())
         .contains("500")
@@ -155,7 +193,6 @@ class CalculationServiceIntegrationTest {
   @DisplayName("Network Timeout: Should gracefully handle R engine latency")
   void shouldReturnEngineUnavailableOnTimeout() {
     // GIVEN
-
     stubFor(post(urlEqualTo("/calculate-ri"))
         .willReturn(aResponse()
             .withStatus(200)

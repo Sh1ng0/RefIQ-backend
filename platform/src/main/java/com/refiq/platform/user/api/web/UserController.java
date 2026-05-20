@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-public class UserController {
+public class UserController implements UserApi{
 
   private final UserService userService;
 
@@ -25,6 +25,7 @@ public class UserController {
    * @param userId The UUID of the user, injected by Spring Security.
    * @return A {@link ResponseEntity} containing the profile data (200 OK) or a 404 Not Found if it doesn't exist.
    */
+  @Override
   @GetMapping("/profile")
   public ResponseEntity<UserProfileResponse> getMyProfile(@AuthenticationPrincipal UUID userId) {
 

@@ -11,9 +11,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 class UserControllerIntegrationTest extends UserBaseIntegrationTest {
 
   @Autowired
@@ -47,7 +49,6 @@ class UserControllerIntegrationTest extends UserBaseIntegrationTest {
   @Test
   @DisplayName("GET /profile: 404 NOT FOUND - Token válido pero perfil no creado")
   void shouldReturn404WhenProfileDoesNotExist() throws Exception {
-    // GIVEN: Generamos un token para un UUID que NO está en la tabla de perfiles
     UUID nonExistentUserId = UUID.randomUUID();
     String token = jwtProvider.generateToken(nonExistentUserId);
 

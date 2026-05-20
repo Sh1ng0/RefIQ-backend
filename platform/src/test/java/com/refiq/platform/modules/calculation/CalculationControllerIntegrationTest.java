@@ -44,6 +44,7 @@ class CalculationControllerIntegrationTest {
   @MockitoBean
   private CalculationService calculationService;
 
+  private static final String TEST_API_KEY = "test-secret-key-123";
 
   @Test
   @DisplayName("200 OK: Should return JSON result on successful calculation")
@@ -62,10 +63,10 @@ class CalculationControllerIntegrationTest {
 
     // WHEN & THEN
     mockMvc.perform(post("/api/v1/calculations/run")
+            .header("X-RefIQ-Data-Token", TEST_API_KEY) // <-- AÑADIDO
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
-        // CORRECCIÓN
         .andExpect(jsonPath("$.lab_result.reference_range").value("70-100"))
         .andExpect(jsonPath("$.lab_result.value").value(95.5));
   }
@@ -82,6 +83,7 @@ class CalculationControllerIntegrationTest {
 
     // WHEN & THEN
     mockMvc.perform(post("/api/v1/calculations/run")
+            .header("X-RefIQ-Data-Token", TEST_API_KEY) // <-- AÑADIDO
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isServiceUnavailable())
@@ -103,6 +105,7 @@ class CalculationControllerIntegrationTest {
 
     // WHEN & THEN
     mockMvc.perform(post("/api/v1/calculations/run")
+            .header("X-RefIQ-Data-Token", TEST_API_KEY) // <-- AÑADIDO
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnprocessableEntity())
@@ -122,6 +125,7 @@ class CalculationControllerIntegrationTest {
 
     // WHEN & THEN
     mockMvc.perform(post("/api/v1/calculations/run")
+            .header("X-RefIQ-Data-Token", TEST_API_KEY) // <-- AÑADIDO
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest())

@@ -1,13 +1,27 @@
 package com.refiq.platform.modules.ingestion;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.refiq.platform.auth.internal.repository.CredentialRepository;
+import com.refiq.platform.ingestion.api.web.IngestionController;
+import com.refiq.platform.ingestion.internal.adapter.s3.S3StorageAdapter;
+import com.refiq.platform.ingestion.internal.service.IngestionService;
+import com.refiq.platform.shared.config.S3Config;
+import com.refiq.platform.user.internal.repository.UserProfileRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
+import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
+import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration;
+import org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration;
+import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,8 +38,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@SpringBootTest(classes = {
+    IngestionController.class,
+    IngestionService.class,
+    S3Config.class
+})
+@Import({
+    JacksonAutoConfiguration.class,
+    ServletWebServerFactoryAutoConfiguration.class,
+    DispatcherServletAutoConfiguration.class,
+    WebMvcAutoConfiguration.class,
+    S3StorageAdapter.class,
+    HttpMessageConvertersAutoConfiguration.class
+})
 @ActiveProfiles("test")
-@AutoConfigureMockMvc(addFilters = false) // Mantenemos la seguridad apagada para testear el router
+@AutoConfigureMockMvc(addFilters = false)
 class IngestionIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
@@ -37,12 +64,18 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
   @Autowired
   private ObjectMapper objectMapper;
 
+  @MockitoBean
+  private com.refiq.platform.user.internal.repository.UserProfileRepository userProfileRepository;
+
+  @MockitoBean
+  private com.refiq.platform.auth.internal.repository.CredentialRepository credentialRepository;
+
   private static final String BUCKET_NAME = "refiq-clinical-data-dev";
 
   @Test
   @DisplayName("Integration: Should accept valid analyte and upload raw CSV directly to its specific folder")
   void shouldUploadSmallFileSuccessfully() throws Exception {
-    // 1. ARRANGE
+
     String analyteStr = "ALP"; // Tiene que coincidir con el Enum Analyte.ALP
     String content = "HEADER;IGNORED;ETC\nVAL1;VAL2;VAL3";
 
@@ -82,7 +115,7 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
   @DisplayName("Integration: Should handle Large File Upload to specific folder with backpressure")
   void shouldProcessLargeFileInChunksSuccessfully() throws Exception {
     // 1. ARRANGE
-    String analyteStr = "CRE"; // Tiene que coincidir con el Enum Analyte.CRE
+    String analyteStr = "CRE";
     String header = "ID;Age;DOB;Sex;Res;Val\n";
     String padding = "X".repeat(1024);
     String heavyRow = "LOINC-TEST;45;1980-01-01;F;Ignored" + padding + ";123,45\n";
