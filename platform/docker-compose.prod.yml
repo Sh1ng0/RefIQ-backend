@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: refiq-app
+    # No exponemos el 8080 al mundo, solo a la red interna de Docker.
+    # Nginx se encargará de hablar con ella.
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - minio
+      - r-engine
+    restart: always
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: refiq-postgres
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    restart: always
+
+  minio:
+    image: minio/minio:latest
+    container_name: refiq-minio
+    environment:
+      - MINIO_ROOT_USER=${MINIO_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_prod_data:/data
+    restart: always
+
+  r-engine:
+    build:
+      context: ./src/main/java/com/refiq/engine
+      dockerfile: Dockerfile
+    container_name: refiq-engine
+    restart: always
+
+  # --- EL PORTERO (Nginx Proxy Manager) ---
+  nginx-proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: refiq-proxy
+    ports:
+      - '80:80'   # Tráfico HTTP
+      - '81:81'   # Panel de control de Nginx
+      - '443:443' # Tráfico HTTPS
+    volumes:
+      - ./nginx/data:/data
+      - ./nginx/letsencrypt:/etc/letsencrypt
+    restart: always
+
+volumes:
+  postgres_prod_data:
+  minio_prod_data:

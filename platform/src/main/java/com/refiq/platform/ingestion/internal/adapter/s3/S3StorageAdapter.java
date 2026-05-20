@@ -27,6 +27,8 @@ import software.amazon.awssdk.services.s3.model.UploadPartRequest;
  * SDK, resource management (stream closing), and multipart upload orchestration.
  * </p>
  */
+
+// Minio uses the same standard as AWS's S3 so this works just fine for Minio
 @Component
 @RequiredArgsConstructor
 public class S3StorageAdapter implements StoragePort {

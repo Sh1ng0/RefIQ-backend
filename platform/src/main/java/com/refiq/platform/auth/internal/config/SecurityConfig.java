@@ -1,5 +1,6 @@
 package com.refiq.platform.auth.internal.config;
 
+import com.refiq.platform.auth.internal.security.DataLakeApiKeyFilter;
 import com.refiq.platform.auth.internal.security.JwtAuthenticationFilter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -26,10 +27,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 @RequiredArgsConstructor
 @Profile({"!test", "security"})
-class SecurityConfig {
+public class SecurityConfig {
 
 
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
+  private final DataLakeApiKeyFilter dataLakeApiKeyFilter;
 
   @Value("${refiq.security.cors.allowed-origins}")
   private List<String> allowedOrigins;
@@ -51,10 +53,11 @@ class SecurityConfig {
 
             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
             .requestMatchers("/actuator/health/**").permitAll()
+            .requestMatchers("/api/v1/calculations/**").permitAll()
 
             .anyRequest().authenticated()
         )
-        // Enganchamos nuestro filtro justo antes del filtro estándar de validación de usuarios
+        .addFilterBefore(dataLakeApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
@@ -67,7 +70,6 @@ class SecurityConfig {
   @Bean
   CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
-
 
     configuration.setAllowedOrigins(allowedOrigins);
 

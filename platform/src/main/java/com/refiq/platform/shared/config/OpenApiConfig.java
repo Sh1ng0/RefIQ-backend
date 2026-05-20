@@ -26,12 +26,14 @@ public class OpenApiConfig {
             .contact(new Contact()
                 .name("RefIQ Team")
                 .email("dev@refiq.platform")))
-        // We define the Security Scheme here once.
-        // Modules (like Auth) will reference this by name ("basicAuth" or "bearerAuth").
         .components(new Components()
             .addSecuritySchemes("basicAuth", new SecurityScheme()
                 .type(SecurityScheme.Type.HTTP)
-                .scheme("basic")));
+                .scheme("basic"))
+            .addSecuritySchemes("bearerAuth", new SecurityScheme()
+                .type(SecurityScheme.Type.HTTP)
+                .scheme("bearer")
+                .bearerFormat("JWT")));
   }
 
   /**
@@ -65,6 +67,17 @@ public class OpenApiConfig {
     return GroupedOpenApi.builder()
         .group("auth")
         .packagesToScan("com.refiq.platform.auth")
+        .build();
+  }
+
+  /**
+   * Group for the User Module.
+   */
+  @Bean
+  public GroupedOpenApi userApi() {
+    return GroupedOpenApi.builder()
+        .group("user")
+        .packagesToScan("com.refiq.platform.user")
         .build();
   }
 }

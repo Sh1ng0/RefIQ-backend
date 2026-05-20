@@ -25,7 +25,8 @@ public record RegisterUserRequest(
     @Schema(description = "Nombre del hospital o laboratorio", example = "Hospital Clinic")
     @NotBlank(message = "El nombre del hospital es obligatorio")
     @Size(max = 100, message = "El nombre del hospital no puede exceder los 100 caracteres")
-    String userName,
+    String name,
+
 
     @Schema(description = "Correo electrónico del usuario", example = "usuario@refiq.com")
     @NotBlank(message = "El email es obligatorio")

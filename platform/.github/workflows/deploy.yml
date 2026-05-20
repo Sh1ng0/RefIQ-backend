@@ -1,0 +1,90 @@
+name: RefIQ CI/CD Pipeline
+
+# El robot se despertará cada vez que haya un push (o un merge de una PR) a la rama 'main'
+on:
+  push:
+    branches:
+      - main # Si tu rama principal se llama 'master', cámbialo aquí
+
+env:
+  REGISTRY: ghcr.io
+  # GitHub inyecta tu usuario automáticamente en 'repository_owner'
+  IMAGE_NAME_APP: ${{ github.repository_owner }}/refiq-app
+  IMAGE_NAME_ENGINE: ${{ github.repository_owner }}/refiq-engine
+
+jobs:
+  # ==========================================
+  # FASE 1 y 2: Compilar y Subir a GHCR
+  # ==========================================
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Permiso necesario para subir imágenes a GHCR
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven # Esto acelera muchísimo los despliegues guardando dependencias
+
+      - name: Compilar con Maven
+        # Usamos -DskipTests para ir rápido en el MVP. Si tienes tests unitarios, quita esa flag.
+        run: mvn clean package -DskipTests
+
+      - name: Login en GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          # GITHUB_TOKEN es mágico, GitHub lo crea temporalmente en cada ejecución
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir y subir imagen (Spring Boot)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_APP }}:latest
+
+      - name: Construir y subir imagen (R Engine)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/main/java/com/refiq/engine
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_ENGINE }}:latest
+
+  # ==========================================
+  # FASE 3: Despliegue en el VPS de Ionos
+  # ==========================================
+  deploy:
+    needs: build-and-push # Espera a que termine la compilación para ejecutarse
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conectar por SSH y actualizar el servidor
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            # 1. Navegamos a la carpeta del proyecto en el VPS
+            # (Asumimos que crearás esta carpeta en Ionos en el Asalto 4)
+            cd /opt/refiq-platform
+            
+            # 2. Login en GHCR desde el servidor (para descargar imágenes si el repo es privado)
+            echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # 3. Descargamos las imágenes frescas
+            docker compose -f docker-compose.prod.yml pull
+            
+            # 4. Reiniciamos los contenedores sin interrumpir el servicio bruscamente
+            docker compose -f docker-compose.prod.yml up -d
+            
+            # 5. Mantenimiento: Borramos las imágenes viejas de GHCR para que los 60GB del disco no se llenen
+            docker image prune -f

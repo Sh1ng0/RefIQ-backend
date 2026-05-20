@@ -10,6 +10,12 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+
+
+// TODO
+// Mirar qué hay que delegar de esto con respecto a NGINX
+// Rate limiting basado en IP preparado para entorno con proxy (X-Forwarded-For). Pendiente configuración en Nginx.
+// DEUDA TECNICA RATE LIMITING POR EMAIL para evtar dictionary attacks
 /**
  * Unified in-memory rate limiter to mitigate brute-force and spam attacks.
  * Protects the login flow (by email) and the registration flow (by IP).
@@ -17,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @Profile({"!test", "security"})
 public class AuthRateLimiter {
-
 
   private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
