@@ -55,7 +55,6 @@ public class IngestionService {
 
   private final StoragePort storagePort;
 
-
   private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
 
