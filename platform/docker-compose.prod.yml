@@ -61,3 +61,8 @@ services:
 volumes:
   postgres_prod_data:
   minio_prod_data:
+
+
+networks:
+  default:
+    name: refiq-network
