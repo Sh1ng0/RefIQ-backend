@@ -21,7 +21,11 @@ enum IngestionLogEvent implements Loggable {
 
   // --- Errores Globales ---
   PIPELINE_ERROR(LogLevel.ERROR, "Fallo crítico en pipeline de ingesta [FileID: {}]. Causa: {}"),
-  MULTIPART_ABORTED(LogLevel.ERROR, "Transacción Multipart abortada por error crítico. Key: {}");
+  MULTIPART_ABORTED(LogLevel.ERROR, "Transacción Multipart abortada por error crítico. Key: {}"),
+
+  // --- Trigger Data Lake ---
+  DATALAKE_TRIGGER_SENT(LogLevel.INFO, "Data Lake notificado correctamente vía HTTP para iniciar pipeline."),
+  DATALAKE_TRIGGER_FAILED(LogLevel.WARN, "Fallo al notificar al Data Lake. Archivo en S3, pero pipeline no inició: {}");
 
   private final LogLevel level;
   private final String template;

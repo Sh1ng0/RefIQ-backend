@@ -30,6 +30,15 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
+
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterAll;
+
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -64,6 +73,8 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
   @Autowired
   private ObjectMapper objectMapper;
 
+  private static WireMockServer wireMockServer;
+
   @MockitoBean
   private com.refiq.platform.user.internal.repository.UserProfileRepository userProfileRepository;
 
@@ -72,16 +83,41 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
 
   private static final String BUCKET_NAME = "refiq-clinical-data-dev";
 
+  @BeforeAll
+  static void startWireMock() {
+    wireMockServer = new WireMockServer(wireMockConfig().dynamicPort());
+    wireMockServer.start();
+    configureFor("localhost", wireMockServer.port());
+  }
+
+  @AfterAll
+  static void stopWireMock() {
+    if (wireMockServer != null) {
+      wireMockServer.stop();
+    }
+  }
+
+  @DynamicPropertySource
+  static void overrideDataLakeUrl(DynamicPropertyRegistry registry) {
+    // Apuntamos la URL que lee el IngestionService hacia nuestro WireMock
+    registry.add("refiq.datalake.api.url", () -> wireMockServer.baseUrl());
+  }
+
   @Test
-  @DisplayName("Integration: Should accept valid analyte and upload raw CSV directly to its specific folder")
+  @DisplayName("Integration: Should accept valid analyte, upload to Bronze layer and trigger Data Lake")
   void shouldUploadSmallFileSuccessfully() throws Exception {
 
-    String analyteStr = "ALP"; // Tiene que coincidir con el Enum Analyte.ALP
+    // 1. ARRANGE
+    String analyteStr = "ALP";
     String content = "HEADER;IGNORED;ETC\nVAL1;VAL2;VAL3";
 
     MockMultipartFile file = new MockMultipartFile(
         "file", "small_test.csv", MediaType.TEXT_PLAIN_VALUE, content.getBytes()
     );
+
+    // Preparamos WireMock para que responda 202 Accepted cuando le llamemos
+    stubFor(post(urlEqualTo("/run-pipeline"))
+        .willReturn(aResponse().withStatus(202)));
 
     // 2. ACT
     mockMvc.perform(multipart("/api/ingestion/upload")
@@ -97,20 +133,21 @@ class IngestionIntegrationTest extends AbstractIntegrationTest {
         .untilAsserted(() -> {
           var response = s3Client.listObjects(b -> b.bucket(BUCKET_NAME));
 
-
-          S3Object rawFile = response.contents().stream()
-              .filter(o -> o.key().startsWith("raw/" + analyteStr + "/"))
+          S3Object uploadedFile = response.contents().stream()
+              // <-- CAMBIO A 1.Bronze AQUÍ
+              .filter(o -> o.key().startsWith("1.Bronze/" + analyteStr + "/"))
               .findFirst()
-              .orElseThrow(() -> new AssertionError("No se encontró el archivo RAW en la carpeta del analito"));
+              .orElseThrow(() -> new AssertionError("No se encontró el archivo en la capa Bronze"));
 
-
-          ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(b -> b.bucket(BUCKET_NAME).key(rawFile.key()));
+          ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(b -> b.bucket(BUCKET_NAME).key(uploadedFile.key()));
           String downloadedContent = objectBytes.asUtf8String();
 
           assertThat(downloadedContent).isEqualTo(content);
+
+          // <-- NUEVO: Verificamos que el IngestionService disparó el webhook al Data Lake
+          verify(1, postRequestedFor(urlEqualTo("/run-pipeline")));
         });
   }
-
   @Test
   @DisplayName("Integration: Should handle Large File Upload to specific folder with backpressure")
   void shouldProcessLargeFileInChunksSuccessfully() throws Exception {

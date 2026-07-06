@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+
+@Deprecated
 @Component
 @RequiredArgsConstructor
 public class DataLakeApiKeyFilter extends OncePerRequestFilter {

@@ -12,7 +12,8 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.refiq.platform.ingestion.internal.domain.Analyte; // <-- Importante
+import com.refiq.platform.ingestion.api.event.FileIngestedEvent;
+import com.refiq.platform.ingestion.internal.domain.Analyte;
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
 import com.refiq.platform.ingestion.internal.port.StoragePort;
 import com.refiq.platform.ingestion.internal.service.IngestionService;
@@ -26,12 +27,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class IngestionServiceTest {
 
   @Mock
   StoragePort storagePort;
+
+  @Mock
+  ApplicationEventPublisher eventPublisher;
 
   @InjectMocks
   IngestionService ingestionService;
@@ -45,7 +50,7 @@ class IngestionServiceTest {
 
     IngestionFile file = new IngestionFile(
         "test_fail.csv",
-        Analyte.ALP, // <-- Uso del Enum
+        Analyte.ALP,
         () -> new ByteArrayInputStream(content.getBytes()),
         content.length(),
         "text/csv",
@@ -61,6 +66,9 @@ class IngestionServiceTest {
     ingestionService.ingest(file);
 
     // THEN
+    // Verificamos que el evento de Modulith se disparó (ocurre sincrónicamente antes del fallo de red)
+    verify(eventPublisher).publishEvent(any(FileIngestedEvent.class));
+
     await().atMost(2, SECONDS).untilAsserted(() -> {
       verify(storagePort).abortMultipartUpload(anyString(), eq("upload-123"));
       assertThat(cleanedUp.get()).isTrue();
@@ -68,15 +76,15 @@ class IngestionServiceTest {
   }
 
   @Test
-  @DisplayName("Happy Path: Should route raw bytes to specific analyte folder and inject metadata")
-  void should_RouteBytesToAnalyteFolder_With_Metadata() {
+  @DisplayName("Happy Path: Should route raw bytes, inject metadata and publish Spring Event")
+  void should_RouteBytesToAnalyteFolder_With_Metadata_And_PublishEvent() {
     // GIVEN
     String csvContent = "Raw;Data;No;Mapping";
     AtomicBoolean cleanedUp = new AtomicBoolean(false);
 
     IngestionFile file = new IngestionFile(
         "dirty.csv",
-        Analyte.CRE, // <-- Uso del Enum
+        Analyte.CRE,
         () -> new ByteArrayInputStream(csvContent.getBytes()),
         csvContent.length(),
         "text/csv",
@@ -85,6 +93,7 @@ class IngestionServiceTest {
 
     ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<Map<String, String>> metadataCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<FileIngestedEvent> eventCaptor = ArgumentCaptor.forClass(FileIngestedEvent.class);
 
     when(storagePort.initMultipartUpload(keyCaptor.capture(), anyString(), metadataCaptor.capture()))
         .thenReturn("up-ok");
@@ -95,23 +104,28 @@ class IngestionServiceTest {
     ingestionService.ingest(file);
 
     // THEN
+    // 1. Verificamos la publicación del evento a Modulith y capturamos el UUID generado
+    verify(eventPublisher).publishEvent(eventCaptor.capture());
+    FileIngestedEvent publishedEvent = eventCaptor.getValue();
+    assertThat(publishedEvent.testCode()).isEqualTo("CRE");
+    assertThat(publishedEvent.fileId()).isNotNull();
+
+    // 2. Verificamos el flujo asíncrono y la consistencia del UUID
     await().atMost(2, SECONDS).untilAsserted(() -> {
       verify(storagePort).completeMultipartUpload(anyString(), eq("up-ok"), anyMap());
       assertThat(cleanedUp.get()).isTrue();
 
-
       String usedKey = keyCaptor.getValue();
       assertThat(usedKey)
-          .startsWith("raw/CRE/CRE_")
-          .endsWith(".csv");
-
+          .startsWith("1.Bronze/CRE/CRE_")
+          .endsWith(".csv")
+          .contains(publishedEvent.fileId().toString()); // El nombre del archivo debe tener el UUID del evento
 
       Map<String, String> usedMetadata = metadataCaptor.getValue();
       assertThat(usedMetadata)
           .containsEntry("original-filename", "dirty.csv")
           .containsEntry("analyte", "CRE")
-          .containsKey("record-id");
-
+          .containsEntry("record-id", publishedEvent.fileId().toString()); // La metadata debe tener el mismo UUID
 
       ArgumentCaptor<byte[]> payloadCaptor = ArgumentCaptor.forClass(byte[].class);
       verify(storagePort, atLeastOnce()).uploadPart(anyString(), eq("up-ok"), anyInt(), payloadCaptor.capture());
@@ -128,7 +142,7 @@ class IngestionServiceTest {
     String csvContent = "H1;H2\nD1;D2";
     IngestionFile file = new IngestionFile(
         "async.csv",
-        Analyte.FT4, // <-- Uso del Enum
+        Analyte.FT4,
         () -> new ByteArrayInputStream(csvContent.getBytes()),
         10,
         "text/csv",
@@ -137,7 +151,6 @@ class IngestionServiceTest {
 
     when(storagePort.initMultipartUpload(anyString(), anyString(), anyMap())).thenReturn("up-async");
 
-    // SIMULAMOS LATENCIA EN RED PARA S3
     when(storagePort.uploadPart(anyString(), anyString(), anyInt(), any())).thenAnswer(invocation -> {
       Thread.sleep(100);
       return "etag-delayed";
@@ -147,8 +160,10 @@ class IngestionServiceTest {
     ingestionService.ingest(file);
 
     // THEN
+    verify(eventPublisher).publishEvent(any(FileIngestedEvent.class));
+
     await().atMost(2, SECONDS).untilAsserted(() -> {
       verify(storagePort).completeMultipartUpload(anyString(), eq("up-async"), anyMap());
     });
   }
-}
+} 

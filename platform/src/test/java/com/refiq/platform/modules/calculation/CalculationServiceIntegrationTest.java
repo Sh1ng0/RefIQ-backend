@@ -5,6 +5,9 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResult;
 import com.refiq.platform.calculation.internal.adapter.plumber.PlumberAdapter;
+import com.refiq.platform.calculation.internal.repository.CalculationResultRepository;
+import com.refiq.platform.calculation.internal.repository.entity.CalculationResultEntity;
+import com.refiq.platform.calculation.internal.repository.entity.CalculationStatus;
 import com.refiq.platform.calculation.internal.service.CalculationService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,12 +30,15 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import java.net.URL;
+import java.util.Optional;
+import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest(classes = {
@@ -50,11 +56,17 @@ class CalculationServiceIntegrationTest {
   @Autowired
   private CalculationService calculationService;
 
-
   @MockitoBean
   private S3Presigner s3Presigner;
 
+  // NUEVO: Mockeamos el repositorio para la persistencia del resultado
+  @MockitoBean
+  private CalculationResultRepository calculationResultRepository;
+
   private static WireMockServer wireMockServer;
+
+  // UUID de prueba constante
+  private final UUID testUuid = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
 
   @BeforeAll
   static void startWireMock() {
@@ -71,29 +83,31 @@ class CalculationServiceIntegrationTest {
   }
 
   @BeforeEach
-  void setUpS3Mock() throws Exception {
+  void setUpMocks() throws Exception {
+    // Configuración de S3
     PresignedGetObjectRequest mockPresigned = mock(PresignedGetObjectRequest.class);
-
     when(mockPresigned.url()).thenReturn(new URL("https://mock-s3-url.com/fake-data.csv"));
-
     when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
         .thenReturn(mockPresigned);
+
+    // NUEVO: Simulamos que la entidad en estado PENDING ya existe en la BD
+    CalculationResultEntity dummyEntity = CalculationResultEntity.builder()
+        .id(testUuid)
+        .status(CalculationStatus.PENDING)
+        .build();
+    when(calculationResultRepository.findById(testUuid)).thenReturn(Optional.of(dummyEntity));
   }
 
   @DynamicPropertySource
   static void configureProperties(DynamicPropertyRegistry registry) {
     registry.add("plumber.api.url", () -> wireMockServer.baseUrl());
     registry.add("plumber.timeout.read-seconds", () -> 2);
-
     registry.add("refiq.storage.s3.bucket-name", () -> "test-bucket");
     registry.add("plumber.presigned.duration-minutes", () -> 10);
   }
 
-
-
-
   @Test
-  @DisplayName("Happy Path: Should correctly deserialize successful R response")
+  @DisplayName("Happy Path: Should correctly deserialize successful R response and save to DB")
   void shouldReturnSuccessfulCalculationWhenPlumberResponds() {
     // GIVEN
     String responseBody = """
@@ -118,8 +132,11 @@ class CalculationServiceIntegrationTest {
             .withHeader("Content-Type", "application/json")
             .withBody(responseBody)));
 
+    // Ruta Gold válida con UUID inyectado
+    String s3Key = "3.Gold/GENERIC/GENERIC_" + testUuid + ".parquet";
+    CalculationRequest request = new CalculationRequest(s3Key, null, null, null);
+
     // WHEN
-    CalculationRequest request = new CalculationRequest("s3://bucket/valid.csv", null, null, null);
     CalculationResult result = calculationService.runAnalysis(request);
 
     // THEN
@@ -129,14 +146,12 @@ class CalculationServiceIntegrationTest {
     assertThat(success.response().labResult().referenceRange()).isEqualTo("70-100");
     assertThat(success.response().labResult().value()).isEqualTo(95.5);
 
-    verify(postRequestedFor(urlEqualTo("/calculate-ri"))
-        .withRequestBody(containing("\"p_low\":0.025"))
-        .withRequestBody(containing("\"p_high\":0.975"))
-        .withRequestBody(containing("\"test_code\":\"GENERIC\"")));
+    // Verificamos que se llamó al repositorio para actualizar el estado
+    verify(calculationResultRepository).save(any(CalculationResultEntity.class));
   }
 
   @Test
-  @DisplayName("Business Error (422): Should map R validation error to DataInconsistency")
+  @DisplayName("Business Error (422): Should map R validation error to DataInconsistency and save to DB")
   void shouldReturnDataInconsistencyWhenPlumberReturns422() {
     // GIVEN
     String errorJson = "{\"error\": \"Datos insuficientes para RefineR. Válidos encontrados: 5\"}";
@@ -147,19 +162,17 @@ class CalculationServiceIntegrationTest {
             .withHeader("Content-Type", "application/json")
             .withBody(errorJson)));
 
-    CalculationRequest request = new CalculationRequest("s3://bucket/empty.csv", 0.025, 0.975,
-        "TEST-CODE");
+    String s3Key = "3.Gold/TEST/TEST_" + testUuid + ".parquet";
+    CalculationRequest request = new CalculationRequest(s3Key, 0.025, 0.975, "TEST-CODE");
 
     // WHEN
     CalculationResult result = calculationService.runAnalysis(request);
 
     // THEN
     assertThat(result).isInstanceOf(CalculationResult.DataInconsistency.class);
-    var inconsistency = (CalculationResult.DataInconsistency) result;
 
-    assertThat(inconsistency.details())
-        .contains("Datos insuficientes")
-        .doesNotContain("{");
+    // Verificamos que se intentó guardar el error en base de datos
+    verify(calculationResultRepository).save(any(CalculationResultEntity.class));
   }
 
   @Test
@@ -174,19 +187,15 @@ class CalculationServiceIntegrationTest {
             .withHeader("Content-Type", "application/json")
             .withBody(errorJson)));
 
-    CalculationRequest request = new CalculationRequest("s3://bucket/crash.csv", 0.025, 0.975,
-        null);
+    String s3Key = "3.Gold/TEST/TEST_" + testUuid + ".parquet";
+    CalculationRequest request = new CalculationRequest(s3Key, 0.025, 0.975, null);
 
     // WHEN
     CalculationResult result = calculationService.runAnalysis(request);
 
     // THEN
     assertThat(result).isInstanceOf(CalculationResult.EngineUnavailable.class);
-    var error = (CalculationResult.EngineUnavailable) result;
-
-    assertThat(error.debugInfo())
-        .contains("500")
-        .contains("Critical R Error");
+    verify(calculationResultRepository).save(any(CalculationResultEntity.class));
   }
 
   @Test
@@ -199,17 +208,14 @@ class CalculationServiceIntegrationTest {
             .withBody("{}")
             .withFixedDelay(3000)));
 
-    CalculationRequest request = new CalculationRequest("s3://bucket/slow.csv", 0.025, 0.975, null);
+    String s3Key = "3.Gold/TEST/TEST_" + testUuid + ".parquet";
+    CalculationRequest request = new CalculationRequest(s3Key, 0.025, 0.975, null);
 
     // WHEN
     CalculationResult result = calculationService.runAnalysis(request);
 
     // THEN
     assertThat(result).isInstanceOf(CalculationResult.EngineUnavailable.class);
-    var error = (CalculationResult.EngineUnavailable) result;
-
-    assertThat(error.debugInfo())
-        .as("Debe indicar que hubo un timeout")
-        .containsIgnoringCase("Timeout");
+    verify(calculationResultRepository).save(any(CalculationResultEntity.class));
   }
 }

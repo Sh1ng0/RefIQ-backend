@@ -54,6 +54,7 @@ public class SecurityConfig {
             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
             .requestMatchers("/actuator/health/**").permitAll()
             .requestMatchers("/api/v1/calculations/**").permitAll()
+            .requestMatchers("/api/v1/webhooks/minio").permitAll()
 
             .anyRequest().authenticated()
         )

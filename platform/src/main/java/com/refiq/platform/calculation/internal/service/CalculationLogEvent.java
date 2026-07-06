@@ -11,12 +11,23 @@ public enum CalculationLogEvent implements Loggable {
   ANALYSIS_INITIATED(LogLevel.DEBUG, "Enviando petición a R Plumber para S3Key: {}"),
 
   R_RESPONSE_RECEIVED(LogLevel.DEBUG, "JSON crudo recibido de R: {}"),
-
   R_DESERIALIZATION_ERROR(LogLevel.ERROR, "Error crítico deserializando respuesta de R. JSON: {}"),
+  R_TECHNICAL_ERROR(LogLevel.ERROR, "El motor R devolvió un error HTTP. Status: {}"),
 
-  R_TECHNICAL_ERROR(LogLevel.ERROR, "El motor R devolvió un error HTTP. Status: {}");
+  // --- MinIO Webhooks ---
+  MINIO_WEBHOOK_RECEIVED(LogLevel.INFO, "Webhook de MinIO recibido para archivo Gold: {}"),
+  MINIO_WEBHOOK_PARSING_WARN(LogLevel.WARN, "No se pudo extraer el código del analito de la ruta: {}"),
+  MINIO_WEBHOOK_ERROR(LogLevel.ERROR, "Error inesperado procesando el webhook de MinIO: {}"),
 
-  // Problema con s3 maybe
+  // --- Calculation Results Handling ---
+  CALCULATION_SUCCESS(LogLevel.INFO, "Cálculo exitoso para {}. Rango: {}"),
+  CALCULATION_DATA_INCONSISTENCY(LogLevel.WARN, "Inconsistencia en datos para {}: {}"),
+  CALCULATION_ENGINE_UNAVAILABLE(LogLevel.ERROR, "Motor R no disponible para {}: {}"),
+  CALCULATION_INVALID_REQUEST(LogLevel.ERROR, "Petición inválida generada por el Webhook: {}"),
+
+  // --- Persistence ---
+  CALCULATION_RESULT_SAVED(LogLevel.INFO, "Cálculo exitoso. JSON guardado en BD para fileId: {}");
+
   private final LogLevel level;
   private final String messageTemplate;
 
