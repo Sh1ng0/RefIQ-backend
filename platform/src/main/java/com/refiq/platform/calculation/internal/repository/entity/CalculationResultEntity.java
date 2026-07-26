@@ -11,6 +11,8 @@ import lombok.Setter;
 import java.util.UUID;
 
 
+// TODO refactorizar esto para que sea DOP ready (jOOQ / Spring JDBC)
+
 /**
  * JPA Entity representing the persistence state of an asynchronous reference interval calculation.
  * <p>

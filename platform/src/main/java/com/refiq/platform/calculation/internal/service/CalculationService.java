@@ -62,10 +62,23 @@ public class CalculationService {
    */
   public CalculationResult runAnalysis(CalculationRequest request) {
 
-    CalculationLogEvent.CALCULATION_STARTED.log(log, request.s3Key(), request.percentileLow(), request.percentileHigh());
+    CalculationLogEvent.CALCULATION_STARTED.log(
+        log,
+        request.s3Key(),
+        request.percentileLow(),
+        request.percentileHigh()
+    );
 
     // 1. Extraemos el UUID de la ruta del archivo (S3 Key)
     UUID fileId = extractUuidFromKey(request.s3Key());
+
+    int claimed = repository.claimPendingCalculation(fileId);
+
+    if (claimed == 0) {
+      return alreadyHandled(fileId);
+    }
+
+
     CalculationResult finalResult;
 
     // 2. Ejecutamos el análisis con tu manejo de errores intacto
@@ -82,13 +95,14 @@ public class CalculationService {
 
     } catch (Exception e) {
       CalculationLogEvent.PLUMBER_ERROR.log(log, e.getMessage());
+
       String debugMsg = (e.getCause() instanceof SocketTimeoutException)
           ? "Timeout esperando respuesta del motor de análisis."
           : e.getMessage();
+
       finalResult = new CalculationResult.EngineUnavailable(debugMsg);
     }
 
-    // 3. Actualizamos la Base de Datos con el resultado final
     updateTrackingRecord(fileId, finalResult);
 
     return finalResult;
@@ -145,5 +159,16 @@ public class CalculationService {
       return UUID.fromString(matcher.group(1));
     }
     throw new IllegalArgumentException("No se encontró un UUID válido en la ruta de S3: " + s3Key);
+  }
+
+
+  private CalculationResult alreadyHandled(UUID fileId) {
+    String status = repository.findById(fileId)
+        .map(entity -> entity.getStatus().name())
+        .orElse("NOT_FOUND");
+
+    CalculationTrackingLogEvent.TRACKING_ALREADY_HANDLED.log(log, fileId, status);
+
+    return new CalculationResult.AlreadyHandled(status);
   }
 }

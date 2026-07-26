@@ -117,6 +117,10 @@ public class MinioWebhookController {
 
         case CalculationResult.InvalidRequest ir ->
             CalculationLogEvent.CALCULATION_INVALID_REQUEST.log(log, ir.reason());
+
+        case CalculationResult.AlreadyHandled ah ->
+            CalculationLogEvent.MINIO_WEBHOOK_DUPLICATE_IGNORED.log(log, request.testCode(), ah.status());
+
       }
     } catch (Exception e) {
       CalculationLogEvent.MINIO_WEBHOOK_ERROR.log(log, e.getMessage());

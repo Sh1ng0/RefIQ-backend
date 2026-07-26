@@ -1,10 +1,8 @@
 package com.refiq.platform.calculation.api.web;
 
 
-
-
+import com.refiq.platform.calculation.api.web.response.ResultResponse;
 import com.refiq.platform.calculation.internal.repository.CalculationResultRepository;
-import com.refiq.platform.calculation.internal.repository.entity.CalculationStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -20,10 +18,10 @@ import java.util.UUID;
 /**
  * REST Controller responsible for retrieving the final results of asynchronous calculations.
  * <p>
- * This controller provides an endpoint for clients (e.g., the Frontend) to poll the status
- * of a calculation using the unique file identifier (UUID) generated during the initial
- * ingestion phase. It interacts with the {@link CalculationResultRepository} to fetch
- * the current state of the processing pipeline.
+ * This controller provides an endpoint for clients (e.g., the Frontend) to poll the status of a
+ * calculation using the unique file identifier (UUID) generated during the initial ingestion phase.
+ * It interacts with the {@link CalculationResultRepository} to fetch the current state of the
+ * processing pipeline.
  * </p>
  */
 @RestController
@@ -36,40 +34,43 @@ public class ResultController {
   /**
    * Retrieves the calculation result or the current processing status for a given file ID.
    * <p>
-   * This endpoint relies on HTTP status codes to communicate the state of the asynchronous process
-   * to the polling client:
+   * This endpoint relies on HTTP status codes and a strongly typed {@link ResultResponse}
+   * contract to communicate the state of the asynchronous process to the polling client:
    * <ul>
-   * <li><b>200 OK:</b> The calculation is complete, and the final JSON payload is returned.</li>
-   * <li><b>202 ACCEPTED:</b> The calculation is still in progress in the Data Lake or the R engine.</li>
-   * <li><b>500 INTERNAL SERVER ERROR:</b> The processing failed, returning the underlying error message.</li>
+   * <li><b>200 OK:</b> The calculation is complete. Returns a {@link ResultResponse.Success}
+   * containing the final JSON payload.</li>
+   * <li><b>202 ACCEPTED:</b> The calculation is queued or still in progress. Returns a
+   * {@link ResultResponse.Pending} or {@link ResultResponse.Processing} with a status message.</li>
+   * <li><b>500 INTERNAL SERVER ERROR:</b> The processing failed. Returns a
+   * {@link ResultResponse.Failing} detailing the underlying error message.</li>
    * <li><b>404 NOT FOUND:</b> The provided UUID does not exist in the tracking database.</li>
    * </ul>
    * </p>
    *
    * @param fileId The unique identifier (UUID) of the ingested file to query.
-   * @return A {@link ResponseEntity} containing the exact JSON payload on success, a status message
-   * if pending, or an error payload if the calculation failed.
+   * @return A {@link ResponseEntity} containing a {@link ResultResponse} that safely encapsulates
+   * the current state (payload, progress message, or error details) of the calculation.
    */
+  // Los JSON responses!!
   @GetMapping("/{fileId}")
-  public ResponseEntity<?> getResult(@PathVariable UUID fileId) {
+  public ResponseEntity<ResultResponse> getResult(@PathVariable UUID fileId) {
     return repository.findById(fileId)
-        .map(entity -> {
-          if (entity.getStatus() == CalculationStatus.PENDING) {
-            // 202 Accepted: El Data Lake / R aún están currando
-            return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body("{\"message\": \"Calculation in progress\"}");
-          } else if (entity.getStatus() == CalculationStatus.FAILED) {
-            // 500 o 400: Algo falló. Devolvemos el mensaje de error.
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("{\"error\": \"" + entity.getErrorMessage() + "\"}");
-          } else {
-            // 200 OK: ¡Éxito! Devolvemos el JSON exacto que guardamos.
-            return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .body(entity.getPayload());
-          }
+        .map(entity -> switch (entity.getStatus()) {
+
+          case PENDING -> ResponseEntity.status(HttpStatus.ACCEPTED)
+              .body((ResultResponse) new ResultResponse.Pending("Calculation is pending"));
+
+          case PROCESSING -> ResponseEntity.status(HttpStatus.ACCEPTED)
+              .body((ResultResponse) new ResultResponse.Processing("Calculation in progress"));
+
+          case FAILED -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+              .body((ResultResponse) new ResultResponse.Failing(entity.getErrorMessage()));
+
+          case SUCCESS -> ResponseEntity.ok()
+              .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+              .body((ResultResponse) new ResultResponse.Success(entity.getPayload()));
+
         })
-        // 404: Si el UUID no existe en la base de datos
         .orElseGet(() -> ResponseEntity.notFound().build());
   }
 }

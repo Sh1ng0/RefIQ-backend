@@ -15,7 +15,7 @@ import java.util.Map;
 @Schema(description = "Standard error structure for RefIQ")
 public record ApiError(
     @Schema(description = "Error code or short description")
-    String error, // TODO cambiar el front para que espere "error" y no "message" (data.error)
+    String error,
 
 
     @Schema(description = "Additional details (optional)")

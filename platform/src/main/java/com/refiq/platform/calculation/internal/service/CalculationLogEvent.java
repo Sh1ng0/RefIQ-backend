@@ -18,6 +18,7 @@ public enum CalculationLogEvent implements Loggable {
   MINIO_WEBHOOK_RECEIVED(LogLevel.INFO, "Webhook de MinIO recibido para archivo Gold: {}"),
   MINIO_WEBHOOK_PARSING_WARN(LogLevel.WARN, "No se pudo extraer el código del analito de la ruta: {}"),
   MINIO_WEBHOOK_ERROR(LogLevel.ERROR, "Error inesperado procesando el webhook de MinIO: {}"),
+  MINIO_WEBHOOK_DUPLICATE_IGNORED(LogLevel.INFO, "Webhook duplicado ignorado para analito {}. Estado en BD: {}"),
 
   // --- Calculation Results Handling ---
   CALCULATION_SUCCESS(LogLevel.INFO, "Cálculo exitoso para {}. Rango: {}"),

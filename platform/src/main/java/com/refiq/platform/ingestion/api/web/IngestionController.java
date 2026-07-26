@@ -1,6 +1,7 @@
 package com.refiq.platform.ingestion.api.web;
 
 import com.refiq.platform.ingestion.api.dto.IngestionResult;
+import com.refiq.platform.ingestion.api.web.response.IngestionWebResponse;
 import com.refiq.platform.ingestion.internal.domain.Analyte;
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
 import com.refiq.platform.ingestion.internal.service.IngestionService;
@@ -38,33 +39,30 @@ public class IngestionController implements IngestionApi {
 
   private final IngestionService ingestionService;
 
+
   @Override
-  public ResponseEntity<?> upload(MultipartFile file, String analyteStr) {
+  public ResponseEntity<IngestionWebResponse> upload(MultipartFile file, String analyteStr) {
 
+    // 1. Validación de archivo (Flujo de datos)
     if (file.isEmpty()) {
-      return ResponseEntity.badRequest().body(new ApiError("El archivo está vacío."));
-    }
-
-    try {
-
-      Analyte analyte = Analyte.fromString(analyteStr)
-          .orElseThrow(() -> new IllegalArgumentException("Analito no soportado: " + analyteStr));
-
-
-      IngestionFile domainFile = mapToSafeDomainFile(file, analyte);
-      IngestionResult result = ingestionService.ingest(domainFile);
-
-      return mapToResponse(result);
-
-    } catch (IllegalArgumentException e) {
-
-      return ResponseEntity.badRequest().body(new ApiError(e.getMessage()));
-
-    } catch (IOException e) {
-      log.error("Error I/O en la capa web al procesar archivo temporal", e);
       return ResponseEntity.badRequest()
-          .body(new ApiError("Error al procesar el archivo temporal."));
+          .body(new IngestionWebResponse.Failure(new ApiError("El archivo está vacío.")));
     }
+
+    // 2. Validación de Dominio (Sin excepciones, puro DOP)
+    var analyteOpt = Analyte.fromString(analyteStr);
+    if (analyteOpt.isEmpty()) {
+      return ResponseEntity.badRequest()
+          .body(new IngestionWebResponse.Failure(new ApiError("Analito no soportado: " + analyteStr)));
+    }
+
+    // 3. Infraestructura (Si esto lanza IOException, es excepcional y va al GlobalExceptionHandler)
+    IngestionFile domainFile = mapToSafeDomainFile(file, analyteOpt.get());
+
+    // 4. Ejecución del caso de uso
+    IngestionResult result = ingestionService.ingest(domainFile);
+
+    return mapToResponse(result);
   }
 
   // -------------------------------------------------------------------------
@@ -89,48 +87,56 @@ public class IngestionController implements IngestionApi {
    * @return A domain-safe object referencing the temporary file and its cleanup logic.
    * @throws IOException If writing to the temporary disk location fails.
    */
-  private IngestionFile mapToSafeDomainFile(MultipartFile file, Analyte analyte) throws IOException {
+  private IngestionFile mapToSafeDomainFile(MultipartFile file, Analyte analyte) {
+    try {
+      Path tempPath = Files.createTempFile("refiq-ingest-", ".tmp");
+      file.transferTo(tempPath);
 
-    Path tempPath = Files.createTempFile("refiq-ingest-", ".tmp");
-    file.transferTo(tempPath);
-
-    return new IngestionFile(
-        file.getOriginalFilename(),
-        analyte,
-        () -> {
-          try {
-            return new FileInputStream(tempPath.toFile());
-          } catch (IOException e) {
-            throw new java.io.UncheckedIOException("No se pudo abrir el archivo temporal", e);
+      return new IngestionFile(
+          file.getOriginalFilename(),
+          analyte,
+          () -> {
+            try {
+              return new FileInputStream(tempPath.toFile());
+            } catch (IOException e) {
+              // Ya hacías esto aquí, ¡buen instinto!
+              throw new java.io.UncheckedIOException("No se pudo abrir el archivo temporal", e);
+            }
+          },
+          file.getSize(),
+          file.getContentType(),
+          () -> {
+            try {
+              Files.deleteIfExists(tempPath);
+              log.trace("Archivo temporal eliminado: {}", tempPath);
+            } catch (IOException e) {
+              log.warn("No se pudo borrar temporal: {}", tempPath);
+            }
           }
-        },
-        file.getSize(),
-        file.getContentType(),
-        () -> {
-          try {
-            Files.deleteIfExists(tempPath);
-            log.trace("Archivo temporal eliminado: {}", tempPath);
-          } catch (IOException e) {
-            log.warn("No se pudo borrar temporal: {}", tempPath);
-          }
-        }
-    );
+      );
+    } catch (IOException e) {
+      // 3. Convertimos el error de disco en una RuntimeException estándar de Java
+      throw new java.io.UncheckedIOException("Error al procesar el archivo temporal en disco", e);
+    }
   }
 
   /**
    * Mapea el resultado sellado del dominio (Pattern Matching) a la respuesta HTTP adecuada.
    */
-  private ResponseEntity<?> mapToResponse(IngestionResult result) {
+  private ResponseEntity<IngestionWebResponse> mapToResponse(IngestionResult result) {
     return switch (result) {
-      case IngestionResult.Success s -> ResponseEntity.accepted().body(s.response());
-
+      case IngestionResult.Success s -> ResponseEntity.accepted()
+          .body(new IngestionWebResponse.Success(s.response()));
 
       case IngestionResult.InvalidFile e -> ResponseEntity.badRequest()
-          .body(new ApiError("Archivo inválido", Map.of("reason", e.reason())));
+          .body(new IngestionWebResponse.Failure(
+              new ApiError("Archivo inválido", Map.of("reason", e.reason()))
+          ));
 
-      case IngestionResult.StorageUnavailable e ->
-          ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-              .body(new ApiError("Servicio no disponible", Map.of("debug", e.debugInfo())));
+      case IngestionResult.StorageUnavailable e -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+          .body(new IngestionWebResponse.Failure(
+              new ApiError("Servicio no disponible", Map.of("debug", e.debugInfo()))
+          ));
     };
   }
 }

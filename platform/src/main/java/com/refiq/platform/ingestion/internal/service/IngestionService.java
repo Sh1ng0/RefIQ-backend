@@ -3,9 +3,8 @@ package com.refiq.platform.ingestion.internal.service;
 import com.refiq.platform.ingestion.api.dto.IngestionResponse;
 import com.refiq.platform.ingestion.api.dto.IngestionResult;
 import com.refiq.platform.ingestion.api.dto.Status;
-import com.refiq.platform.ingestion.api.event.FileIngestedEvent;
+import com.refiq.platform.ingestion.api.event.FileAcceptedEvent;
 import com.refiq.platform.ingestion.api.event.IngestionFailedEvent;
-import com.refiq.platform.ingestion.internal.domain.Analyte;
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
 import com.refiq.platform.ingestion.internal.port.StoragePort;
 
@@ -32,7 +31,7 @@ import org.springframework.web.client.RestClient;
  * <p>
  * This core service handles the receipt of clinical data files, assigns a unique Correlation ID (UUID),
  * and manages the robust, chunked upload to the Data Lake's Bronze layer via the {@link StoragePort}.
- * It operates in a completely decoupled manner, utilizing Spring Modulith events ({@link FileIngestedEvent}
+ * It operates in a completely decoupled manner, utilizing Spring Modulith events ({@link FileAcceptedEvent}
  * and {@link IngestionFailedEvent}) to communicate state changes to downstream modules (like Calculation)
  * without direct domain coupling.
  * </p>
@@ -89,7 +88,7 @@ public class IngestionService {
     String targetKey = "1.Bronze/" + file.analyte().name() + "/" + file.analyte().name() + "_" + fileId + ".csv";
 
     // 1. PUBLICAMOS EL EVENTO (El listener en Cálculo creará la entidad PENDING)
-    eventPublisher.publishEvent(new FileIngestedEvent(fileId, file.analyte().name()));
+    eventPublisher.publishEvent(new FileAcceptedEvent(fileId, file.analyte().name()));
 
     IngestionLogEvent.UPLOAD_INITIATED.log(log, file.filename(), file.analyte().name(), file.size());
 

@@ -12,7 +12,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.refiq.platform.ingestion.api.event.FileIngestedEvent;
+import com.refiq.platform.ingestion.api.event.FileAcceptedEvent;
 import com.refiq.platform.ingestion.internal.domain.Analyte;
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
 import com.refiq.platform.ingestion.internal.port.StoragePort;
@@ -67,7 +67,7 @@ class IngestionServiceTest {
 
     // THEN
     // Verificamos que el evento de Modulith se disparó (ocurre sincrónicamente antes del fallo de red)
-    verify(eventPublisher).publishEvent(any(FileIngestedEvent.class));
+    verify(eventPublisher).publishEvent(any(FileAcceptedEvent.class));
 
     await().atMost(2, SECONDS).untilAsserted(() -> {
       verify(storagePort).abortMultipartUpload(anyString(), eq("upload-123"));
@@ -93,7 +93,7 @@ class IngestionServiceTest {
 
     ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<Map<String, String>> metadataCaptor = ArgumentCaptor.forClass(Map.class);
-    ArgumentCaptor<FileIngestedEvent> eventCaptor = ArgumentCaptor.forClass(FileIngestedEvent.class);
+    ArgumentCaptor<FileAcceptedEvent> eventCaptor = ArgumentCaptor.forClass(FileAcceptedEvent.class);
 
     when(storagePort.initMultipartUpload(keyCaptor.capture(), anyString(), metadataCaptor.capture()))
         .thenReturn("up-ok");
@@ -106,7 +106,7 @@ class IngestionServiceTest {
     // THEN
     // 1. Verificamos la publicación del evento a Modulith y capturamos el UUID generado
     verify(eventPublisher).publishEvent(eventCaptor.capture());
-    FileIngestedEvent publishedEvent = eventCaptor.getValue();
+    FileAcceptedEvent publishedEvent = eventCaptor.getValue();
     assertThat(publishedEvent.testCode()).isEqualTo("CRE");
     assertThat(publishedEvent.fileId()).isNotNull();
 
@@ -160,7 +160,7 @@ class IngestionServiceTest {
     ingestionService.ingest(file);
 
     // THEN
-    verify(eventPublisher).publishEvent(any(FileIngestedEvent.class));
+    verify(eventPublisher).publishEvent(any(FileAcceptedEvent.class));
 
     await().atMost(2, SECONDS).untilAsserted(() -> {
       verify(storagePort).completeMultipartUpload(anyString(), eq("up-async"), anyMap());

@@ -3,7 +3,7 @@ package com.refiq.platform.calculation.internal.service;
 import com.refiq.platform.calculation.internal.repository.CalculationResultRepository;
 import com.refiq.platform.calculation.internal.repository.entity.CalculationResultEntity;
 import com.refiq.platform.calculation.internal.repository.entity.CalculationStatus;
-import com.refiq.platform.ingestion.api.event.FileIngestedEvent;
+import com.refiq.platform.ingestion.api.event.FileAcceptedEvent;
 import com.refiq.platform.ingestion.api.event.IngestionFailedEvent;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -38,7 +38,7 @@ public class CalculationTrackingListener {
    * @param event The domain event containing the correlation ID (fileId) of the newly ingested file.
    */
   @ApplicationModuleListener
-  void on(FileIngestedEvent event) {
+  void on(FileAcceptedEvent event) {
     CalculationTrackingLogEvent.TRACKING_EVENT_RECEIVED.log(log, event.fileId());
 
     CalculationResultEntity trackingEntity = CalculationResultEntity.builder()
