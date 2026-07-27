@@ -1,7 +1,6 @@
 package com.refiq.platform.ingestion.api.web;
 
-import com.refiq.platform.ingestion.api.dto.IngestionResponse;
-import com.refiq.platform.shared.web.ApiError;
+import com.refiq.platform.ingestion.api.web.response.IngestionWebResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -40,22 +39,22 @@ public interface IngestionApi {
       @ApiResponse(
           responseCode = "202",
           description = "File accepted and transfer to Data Lake initiated",
-          content = @Content(mediaType = "application/json", schema = @Schema(implementation = IngestionResponse.class))
+          content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = IngestionWebResponse.Success.class))
       ),
       @ApiResponse(
           responseCode = "400",
           description = "Invalid request (e.g., missing file, empty file, or unsupported analyte)",
           content = @Content(
-              mediaType = "application/json",
-              schema = @Schema(implementation = ApiError.class),
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = IngestionWebResponse.Failure.class),
               examples = {
                   @ExampleObject(
                       name = "UnsupportedAnalyteExample",
-                      value = "{\n  \"error\": \"Analito no soportado: INVENTADO\",\n  \"details\": {}\n}"
+                      value = "{\n  \"error\": {\n    \"error\": \"Analito no soportado: INVENTADO\",\n    \"details\": null\n  }\n}"
                   ),
                   @ExampleObject(
                       name = "EmptyFileExample",
-                      value = "{\n  \"error\": \"El archivo está vacío.\",\n  \"details\": {}\n}"
+                      value = "{\n  \"error\": {\n    \"error\": \"El archivo está vacío.\",\n    \"details\": null\n  }\n}"
                   )
               }
           )
@@ -64,17 +63,17 @@ public interface IngestionApi {
           responseCode = "503",
           description = "Storage system error",
           content = @Content(
-              mediaType = "application/json",
-              schema = @Schema(implementation = ApiError.class),
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = IngestionWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "StorageUnavailableExample",
-                  value = "{\n  \"error\": \"Servicio no disponible\",\n  \"details\": {\n    \"debug\": \"S3 Timeout Connection Exception\"\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Servicio no disponible\",\n    \"details\": {\n      \"debug\": \"S3 Timeout Connection Exception\"\n    }\n  }\n}"
               )
           )
       )
   })
-  @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  ResponseEntity<?> upload(
+  @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+  ResponseEntity<IngestionWebResponse> upload(
       @Parameter(description = "Archivo CSV raw", required = true)
       @RequestPart("file")
       MultipartFile file,

@@ -59,8 +59,9 @@ class AuthIntegrationTest extends AuthBaseIntegrationTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.message").exists())
-        .andExpect(jsonPath("$.userId").exists());
+        // Añadido .data al path
+        .andExpect(jsonPath("$.data.message").exists())
+        .andExpect(jsonPath("$.data.userId").exists());
 
     Optional<Credential> savedCredential = credentialRepository.findByEmail("nuevo@refiq.com");
     assertThat(savedCredential).isPresent();
@@ -77,7 +78,6 @@ class AuthIntegrationTest extends AuthBaseIntegrationTest {
   void shouldReturn409WhenEmailAlreadyExists() throws Exception {
     RegisterUserRequest request = new RegisterUserRequest("Duplicado Labs", "duplicado@refiq.com", "SuperPassword123!");
 
-
     mockMvc.perform(post("/api/register")
             .header("X-Forwarded-For", "192.168.1.1")
             .contentType(MediaType.APPLICATION_JSON)
@@ -90,14 +90,14 @@ class AuthIntegrationTest extends AuthBaseIntegrationTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.error").value("El email duplicado@refiq.com ya está registrado."));
+        // Añadido .error al path
+        .andExpect(jsonPath("$.error.error").value("El email duplicado@refiq.com ya está registrado."));
   }
 
   @Test
   @DisplayName("Login exitoso: 200 OK y devuelve JWT válido")
   void shouldLoginSuccessfully() throws Exception {
     RegisterUserRequest registerReq = new RegisterUserRequest("Login Labs", "login@refiq.com", "SuperPassword123!");
-
 
     mockMvc.perform(post("/api/register")
             .header("X-Forwarded-For", "192.168.1.3")
@@ -107,14 +107,14 @@ class AuthIntegrationTest extends AuthBaseIntegrationTest {
 
     LoginRequest loginReq = new LoginRequest("login@refiq.com", "SuperPassword123!");
 
-
     mockMvc.perform(post("/api/login")
             .header("X-Forwarded-For", "192.168.1.4")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(loginReq)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.token").exists())
-        .andExpect(jsonPath("$.type").value("Bearer"));
+        // Añadido .data al path
+        .andExpect(jsonPath("$.data.token").exists())
+        .andExpect(jsonPath("$.data.type").value("Bearer"));
   }
 
   @Test
@@ -135,6 +135,7 @@ class AuthIntegrationTest extends AuthBaseIntegrationTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(loginReq)))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").exists());
+        // Añadido .error al path
+        .andExpect(jsonPath("$.error.error").exists());
   }
 }

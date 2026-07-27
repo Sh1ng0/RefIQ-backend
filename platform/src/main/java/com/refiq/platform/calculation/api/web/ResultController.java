@@ -2,7 +2,9 @@ package com.refiq.platform.calculation.api.web;
 
 
 import com.refiq.platform.calculation.api.web.response.ResultResponse;
+import com.refiq.platform.calculation.api.web.response.ResultWebResponse;
 import com.refiq.platform.calculation.internal.repository.CalculationResultRepository;
+import com.refiq.platform.shared.web.ApiError;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -27,7 +29,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/results")
 @RequiredArgsConstructor
-public class ResultController {
+public class ResultController implements ResultApi{
 
   private final CalculationResultRepository repository;
 
@@ -51,26 +53,37 @@ public class ResultController {
    * @return A {@link ResponseEntity} containing a {@link ResultResponse} that safely encapsulates
    * the current state (payload, progress message, or error details) of the calculation.
    */
-  // Los JSON responses!!
-  @GetMapping("/{fileId}")
-  public ResponseEntity<ResultResponse> getResult(@PathVariable UUID fileId) {
+  // Mirar si se puede quitar los "news"
+  @Override
+  public ResponseEntity<ResultWebResponse> getResult(@PathVariable UUID fileId) {
     return repository.findById(fileId)
         .map(entity -> switch (entity.getStatus()) {
 
           case PENDING -> ResponseEntity.status(HttpStatus.ACCEPTED)
-              .body((ResultResponse) new ResultResponse.Pending("Calculation is pending"));
+              .body((ResultWebResponse) new ResultWebResponse.Success(
+                  new ResultResponse.Pending("Calculation is pending")
+              ));
 
           case PROCESSING -> ResponseEntity.status(HttpStatus.ACCEPTED)
-              .body((ResultResponse) new ResultResponse.Processing("Calculation in progress"));
+              .body((ResultWebResponse) new ResultWebResponse.Success(
+                  new ResultResponse.Processing("Calculation in progress")
+              ));
 
           case FAILED -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-              .body((ResultResponse) new ResultResponse.Failing(entity.getErrorMessage()));
+              .body((ResultWebResponse) new ResultWebResponse.Failure(
+                  new ApiError("Error en el cálculo", entity.getErrorMessage())
+              ));
 
           case SUCCESS -> ResponseEntity.ok()
               .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-              .body((ResultResponse) new ResultResponse.Success(entity.getPayload()));
-
+              .body((ResultWebResponse) new ResultWebResponse.Success(
+                  new ResultResponse.Success(entity.getPayload())
+              ));
         })
-        .orElseGet(() -> ResponseEntity.notFound().build());
+        .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ResultWebResponse.Failure(
+                new ApiError("No se encontraron resultados para el ID proporcionado.")
+            ))
+        );
   }
 }

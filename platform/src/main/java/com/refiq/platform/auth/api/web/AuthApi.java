@@ -1,10 +1,9 @@
 package com.refiq.platform.auth.api.web;
 
 import com.refiq.platform.auth.api.dto.LoginRequest;
-import com.refiq.platform.auth.api.dto.LoginResponse;
 import com.refiq.platform.auth.api.dto.RegisterUserRequest;
-import com.refiq.platform.auth.api.dto.RegistrationResponse;
-import com.refiq.platform.shared.web.ApiError;
+import com.refiq.platform.auth.api.web.response.LoginWebResponse;
+import com.refiq.platform.auth.api.web.response.RegistrationWebResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -33,17 +32,17 @@ public interface AuthApi {
       @ApiResponse(
           responseCode = "200",
           description = "Usuario registrado con éxito",
-          content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = RegistrationResponse.class))
+          content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = RegistrationWebResponse.Success.class))
       ),
       @ApiResponse(
           responseCode = "400",
           description = "Error de validación en los datos de entrada",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
-              schema = @Schema(implementation = ApiError.class),
+              schema = @Schema(implementation = RegistrationWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "ValidationError",
-                  value = "{\n  \"error\": \"Error de validación\",\n  \"details\": {\n    \"password\": \"La contraseña debe ser robusta (min 8 caracteres, mayúscula, número y símbolo)\"\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Error de validación\",\n    \"details\": {\n      \"password\": \"La contraseña debe ser robusta (min 8 caracteres, mayúscula, número y símbolo)\"\n    }\n  }\n}"
               )
           )
       ),
@@ -52,31 +51,30 @@ public interface AuthApi {
           description = "Conflicto: El email ya está registrado",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
-              schema = @Schema(implementation = ApiError.class),
+              schema = @Schema(implementation = RegistrationWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "EmailConflict",
-                  value = "{\n  \"error\": \"El email usuario@refiq.com ya está registrado.\",\n  \"details\": null\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"El email usuario@refiq.com ya está registrado.\",\n    \"details\": null\n  }\n}"
               )
           )
       ),
-      // --- AÑADIDO: 429 PARA EL REGISTRO ---
       @ApiResponse(
           responseCode = "429",
           description = "Demasiados intentos de registro desde la misma IP (Rate limiting)",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
-              schema = @Schema(implementation = ApiError.class),
+              schema = @Schema(implementation = RegistrationWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "TooManyRequests",
-                  value = "{\n  \"error\": \"Demasiados intentos de registro desde tu red. Por favor, espera una hora.\",\n  \"details\": null\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Demasiados intentos de registro desde tu red. Por favor, espera una hora.\",\n    \"details\": null\n  }\n}"
               )
           )
       )
   })
   @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  ResponseEntity<?> register(
+  ResponseEntity<RegistrationWebResponse> register(
       @RequestBody @Valid RegisterUserRequest request,
-      @Parameter(hidden = true) HttpServletRequest httpRequest // Ocultamos este parámetro a Swagger
+      @Parameter(hidden = true) HttpServletRequest httpRequest
   );
 
 
@@ -88,14 +86,14 @@ public interface AuthApi {
       @ApiResponse(
           responseCode = "200",
           description = "Autenticación exitosa",
-          content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = LoginResponse.class))
+          content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = LoginWebResponse.Success.class))
       ),
       @ApiResponse(
           responseCode = "400",
           description = "Error de validación en los datos de entrada",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
-              schema = @Schema(implementation = ApiError.class)
+              schema = @Schema(implementation = LoginWebResponse.Failure.class)
           )
       ),
       @ApiResponse(
@@ -103,10 +101,10 @@ public interface AuthApi {
           description = "Credenciales inválidas",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
-              schema = @Schema(implementation = ApiError.class),
+              schema = @Schema(implementation = LoginWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "InvalidCredentials",
-                  value = "{\n  \"error\": \"Credenciales inválidas. Comprueba tu email y contraseña.\",\n  \"details\": null\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Credenciales inválidas. Comprueba tu email y contraseña.\",\n    \"details\": null\n  }\n}"
               )
           )
       ),
@@ -115,14 +113,14 @@ public interface AuthApi {
           description = "Demasiados intentos de login (Rate limiting)",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
-              schema = @Schema(implementation = ApiError.class),
+              schema = @Schema(implementation = LoginWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "TooManyRequests",
-                  value = "{\n  \"error\": \"Has superado el número máximo de intentos permitidos.\",\n  \"details\": null\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Has superado el número máximo de intentos permitidos.\",\n    \"details\": null\n  }\n}"
               )
           )
       )
   })
   @PostMapping(value = "/login", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  ResponseEntity<?> login(@RequestBody @Valid LoginRequest request);
+  ResponseEntity<LoginWebResponse> login(@RequestBody @Valid LoginRequest request);
 }

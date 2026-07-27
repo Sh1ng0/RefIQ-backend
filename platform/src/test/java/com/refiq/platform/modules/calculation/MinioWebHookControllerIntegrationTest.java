@@ -63,6 +63,7 @@ public class MinioWebHookControllerIntegrationTest {
 
     // WHEN
     mockMvc.perform(post("/api/v1/webhooks/minio")
+            .header("X-RefIQ-Webhook-Token", "change-me-in-prod")
             .contentType(MediaType.APPLICATION_JSON)
             .content(minioPayload))
         .andExpect(status().isOk());
@@ -95,6 +96,7 @@ public class MinioWebHookControllerIntegrationTest {
 
     // WHEN
     mockMvc.perform(post("/api/v1/webhooks/minio")
+            .header("X-RefIQ-Webhook-Token", "change-me-in-prod")
             .contentType(MediaType.APPLICATION_JSON)
             .content(minioPayload))
         // THEN - Respuesta HTTP (Para que MinIO no reintente)

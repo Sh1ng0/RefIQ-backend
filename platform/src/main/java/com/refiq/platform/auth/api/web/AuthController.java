@@ -5,6 +5,7 @@ import com.refiq.platform.auth.api.dto.LoginRequest;
 import com.refiq.platform.auth.api.dto.LoginResult;
 import com.refiq.platform.auth.api.dto.RegisterUserRequest;
 import com.refiq.platform.auth.api.dto.RegistrationResult;
+import com.refiq.platform.auth.api.web.response.LoginWebResponse;
 import com.refiq.platform.auth.api.web.response.RegistrationWebResponse;
 import com.refiq.platform.auth.internal.service.AuthService;
 
@@ -101,21 +102,25 @@ public class AuthController implements AuthApi{
    * (401 Unauthorized or 429 Too Many Requests).
    */
   @PostMapping("/login")
-  public ResponseEntity<?> login(@RequestBody @Valid LoginRequest request) {
+  public ResponseEntity<LoginWebResponse> login(@RequestBody @Valid LoginRequest request) {
 
     LoginResult result = authService.login(request);
 
     return switch (result) {
       case LoginResult.Success s ->
-          ResponseEntity.ok(s.response());
+          ResponseEntity.ok(new LoginWebResponse.Success(s.response()));
 
-      case LoginResult.InvalidCredentials ic ->
+      case LoginResult.InvalidCredentials e ->
           ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-              .body(new ApiError("Credenciales inválidas. Comprueba tu email y contraseña."));
+              .body(new LoginWebResponse.Failure(
+                  new ApiError("Credenciales inválidas. Comprueba tu email y contraseña.")
+              ));
 
       case LoginResult.TooManyRequests tmr ->
           ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-              .body(new ApiError(tmr.message()));
+              .body(new LoginWebResponse.Failure(
+                  new ApiError("Has superado el número máximo de intentos permitidos.")
+              ));
     };
   }
 
