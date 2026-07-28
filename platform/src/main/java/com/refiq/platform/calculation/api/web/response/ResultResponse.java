@@ -15,7 +15,7 @@ public sealed interface ResultResponse {
 
   record Processing(String message) implements ResultResponse {}
 
-  record Failing(String error) implements ResultResponse {}
+//  record Failing(String error) implements ResultResponse {}
 
   // @JsonRawValue evita que Jackson escape el String JSON que viene de la BD
   record Success(@JsonRawValue String payload) implements ResultResponse {}

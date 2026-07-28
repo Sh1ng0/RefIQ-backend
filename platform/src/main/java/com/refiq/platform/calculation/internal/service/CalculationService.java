@@ -27,6 +27,7 @@ import java.util.regex.Pattern;
  * and the persistence layer. Its main responsibilities include:
  * <ul>
  * <li>Extracting the correlation ID (UUID) from the Data Lake's S3 object key.</li>
+ * <li>Ensuring idempotency by securely claiming pending calculations to prevent duplicate webhook processing.</li>
  * <li>Delegating the statistical computation to the {@link AnalysisPort}.</li>
  * <li>Handling and mapping technical/business exceptions into the sealed {@link CalculationResult} hierarchy.</li>
  * <li>Persisting the final outcome (Success or Failure) into the tracking database to support Frontend polling.</li>
@@ -51,14 +52,15 @@ public class CalculationService {
   /**
    * Triggers the analysis process for a given request triggered by a Data Lake webhook.
    * <p>
-   * This method executes the full business transaction: extracts the file ID, communicates with the
-   * R engine, maps any resulting errors, and updates the database record. It guarantees that the
-   * database is updated with either the resulting JSON payload or a corresponding error message.
+   * This method executes the full business transaction with built-in idempotency. It first extracts the file ID
+   * and attempts to claim the tracking record (transitioning it to PROCESSING). If successfully claimed,
+   * it communicates with the R engine, maps any resulting errors, and updates the database record to either
+   * SUCCESS or FAILED. If the record is already claimed or processed, it safely aborts the execution.
    * </p>
    *
    * @param request The calculation parameters, including the S3 key of the Gold layer file.
    * @return A {@link CalculationResult} representing a {@code Success}, {@code DataInconsistency},
-   * or {@code EngineUnavailable}.
+   * {@code EngineUnavailable}, or {@code AlreadyHandled} if the event is a duplicate.
    */
   public CalculationResult runAnalysis(CalculationRequest request) {
 

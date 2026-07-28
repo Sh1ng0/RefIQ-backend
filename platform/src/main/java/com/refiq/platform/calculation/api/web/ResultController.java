@@ -36,22 +36,24 @@ public class ResultController implements ResultApi{
   /**
    * Retrieves the calculation result or the current processing status for a given file ID.
    * <p>
-   * This endpoint relies on HTTP status codes and a strongly typed {@link ResultResponse}
-   * contract to communicate the state of the asynchronous process to the polling client:
+   * This endpoint relies on HTTP status codes and a strongly typed {@link ResultWebResponse}
+   * envelope to communicate the state of the asynchronous process to the polling client:
    * <ul>
-   * <li><b>200 OK:</b> The calculation is complete. Returns a {@link ResultResponse.Success}
-   * containing the final JSON payload.</li>
+   * <li><b>200 OK:</b> The calculation is complete. Returns a {@link ResultWebResponse.Success}
+   * wrapping a {@link ResultResponse.Success} with the final JSON payload in the data field.</li>
    * <li><b>202 ACCEPTED:</b> The calculation is queued or still in progress. Returns a
-   * {@link ResultResponse.Pending} or {@link ResultResponse.Processing} with a status message.</li>
+   * {@link ResultWebResponse.Success} wrapping a {@link ResultResponse.Pending} or
+   * {@link ResultResponse.Processing} state.</li>
    * <li><b>500 INTERNAL SERVER ERROR:</b> The processing failed. Returns a
-   * {@link ResultResponse.Failing} detailing the underlying error message.</li>
-   * <li><b>404 NOT FOUND:</b> The provided UUID does not exist in the tracking database.</li>
+   * {@link ResultWebResponse.Failure} encapsulating an {@link ApiError} detailing the underlying issue.</li>
+   * <li><b>404 NOT FOUND:</b> The provided UUID does not exist in the tracking database.
+   * Returns a {@link ResultWebResponse.Failure} wrapping an {@link ApiError}.</li>
    * </ul>
    * </p>
    *
    * @param fileId The unique identifier (UUID) of the ingested file to query.
-   * @return A {@link ResponseEntity} containing a {@link ResultResponse} that safely encapsulates
-   * the current state (payload, progress message, or error details) of the calculation.
+   * @return A {@link ResponseEntity} containing a {@link ResultWebResponse} that safely encapsulates
+   * the current state (data payload or error details) of the calculation.
    */
   // Mirar si se puede quitar los "news"
   @Override

@@ -25,6 +25,7 @@ public class UserController implements UserApi{
    * @param userId The UUID of the user, injected by Spring Security.
    * @return A {@link ResponseEntity} containing the profile data (200 OK) or a 404 Not Found if it doesn't exist.
    */
+  // TODO mirar si es necesario aplicar el patrón envelope con webResponse a este controlador
   @Override
   @GetMapping("/profile")
   public ResponseEntity<UserProfileResponse> getMyProfile(@AuthenticationPrincipal UUID userId) {
