@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalamos las librerías de R: refineR (el modelo) y plumber (la API)
-RUN R -e "install.packages(c('refineR', 'plumber', 'jsonlite'))"
+# Instalamos las librerías de R: refineR (el modelo), plumber (la API), jsonlite (JSON) y arrow (Parquet)
+RUN R -e "install.packages(c('refineR', 'plumber', 'jsonlite', 'arrow'))"
 
 # Creamos el directorio de la app
 WORKDIR /app

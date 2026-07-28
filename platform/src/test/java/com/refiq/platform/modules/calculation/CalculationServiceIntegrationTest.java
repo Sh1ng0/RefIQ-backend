@@ -90,7 +90,7 @@ class CalculationServiceIntegrationTest {
   void setUpMocks() throws Exception {
     // 1. Configuración de S3
     PresignedGetObjectRequest mockPresigned = mock(PresignedGetObjectRequest.class);
-    when(mockPresigned.url()).thenReturn(new URL("https://mock-s3-url.com/fake-data.csv"));
+    when(mockPresigned.url()).thenReturn(new URL("https://mock-s3-url.com/fake-data.parquet"));
     when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
         .thenReturn(mockPresigned);
 
