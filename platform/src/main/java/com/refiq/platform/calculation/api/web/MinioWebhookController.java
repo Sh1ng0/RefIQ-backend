@@ -11,6 +11,7 @@ import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,14 +31,15 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/webhooks/minio")
-@RequiredArgsConstructor
+
 public class MinioWebhookController {
 
   private static final Logger log = LoggerFactory.getLogger(MinioWebhookController.class);
   private final CalculationService calculationService;
 
-  // Usamos hilos virtuales para no bloquear la respuesta al webhook
-  private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+
+
+  private final ExecutorService webhookExecutor;
 
   // --- DTOs internos para mapear el JSON de MinIO ---
   public record MinioEvent(List<MinioRecord> Records) {}
@@ -45,6 +47,12 @@ public class MinioWebhookController {
   public record MinioS3(MinioObject object) {}
   public record MinioObject(String key) {}
 
+
+  public MinioWebhookController(CalculationService calculationService,
+      @Qualifier("webhookExecutor") ExecutorService webhookExecutor) {
+    this.calculationService = calculationService;
+    this.webhookExecutor = webhookExecutor;
+  }
 
 
   /**
@@ -68,22 +76,21 @@ public class MinioWebhookController {
     for (MinioRecord record : event.Records()) {
       String s3Key = record.s3().object().key();
 
-      // Aseguramos que solo procesamos lo que cae en la capa Gold
+
       if (s3Key != null && s3Key.startsWith("3.Gold/")) {
         CalculationLogEvent.MINIO_WEBHOOK_RECEIVED.log(log, s3Key);
 
-        // Extraemos el analito de la ruta (Ej: 3.Gold/TSH/TSH_gold.parquet -> TSH)
+
         String testCode = extractAnalyteFromKey(s3Key);
 
-        // Preparamos la petición para el motor R
         CalculationRequest request = new CalculationRequest(s3Key, null, null, testCode);
 
-        // Delegamos el cálculo a un hilo virtual para liberar a MinIO rápido
-        executor.submit(() -> processCalculation(request));
+
+        webhookExecutor.submit(() -> processCalculation(request));
       }
     }
 
-    // MinIO necesita un 2xx rápido para saber que hemos recibido el evento
+
     return ResponseEntity.ok().build();
   }
 
@@ -103,8 +110,7 @@ public class MinioWebhookController {
     try {
       CalculationResult result = calculationService.runAnalysis(request);
 
-      // El servicio ya ha actualizado la BD con el JSON o el Error.
-      // Este switch queda estrictamente para auditoría y trazabilidad en consola.
+
       switch (result) {
         case CalculationResult.Success s ->
             CalculationLogEvent.CALCULATION_SUCCESS.log(log, request.testCode(), s.response().labResult().referenceRange());
@@ -141,7 +147,6 @@ public class MinioWebhookController {
    */
   private String extractAnalyteFromKey(String key) {
     try {
-      // Split de "3.Gold/TSH/TSH_gold_table.parquet" -> ["3.Gold", "TSH", "TSH_gold_table.parquet"]
       return key.split("/")[1];
     } catch (Exception e) {
       CalculationLogEvent.MINIO_WEBHOOK_PARSING_WARN.log(log, key);

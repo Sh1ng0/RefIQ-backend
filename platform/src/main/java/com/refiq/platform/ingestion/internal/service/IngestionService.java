@@ -55,7 +55,7 @@ public class IngestionService {
    * to prevent memory exhaustion and network congestion when dealing with large files.
    */
   private final StoragePort storagePort;
-  private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+  private final ExecutorService ingestionExecutor;
 
   private final RestClient restClient;
   private final String dataLakeApiUrl;
@@ -63,12 +63,14 @@ public class IngestionService {
 
   public IngestionService(StoragePort storagePort,
       @Value("${refiq.datalake.api.url:http://refiq-pipeline-api:8001}") String dataLakeApiUrl,
-      ApplicationEventPublisher eventPublisher) {
+      ApplicationEventPublisher eventPublisher,
+      ExecutorService ingestionExecutor) {
 
     this.storagePort = storagePort;
     this.dataLakeApiUrl = dataLakeApiUrl;
     this.restClient = RestClient.create();
     this.eventPublisher = eventPublisher;
+    this.ingestionExecutor = ingestionExecutor;
   }
 
   /**
@@ -92,7 +94,7 @@ public class IngestionService {
 
     IngestionLogEvent.UPLOAD_INITIATED.log(log, file.filename(), file.analyte().name(), file.size());
 
-    executor.submit(() -> processBronzeMultipart(file, fileId, targetKey));
+    ingestionExecutor.submit(() -> processBronzeMultipart(file, fileId, targetKey));
 
     return new IngestionResult.Success(
         new IngestionResponse(fileId, Status.PENDING_PROCESSING)
@@ -192,7 +194,7 @@ public class IngestionService {
     return CompletableFuture.runAsync(() -> {
           String eTag = storagePort.uploadPart(key, uploadId, partNum, payload);
           partsMap.put(partNum, eTag);
-        }, executor)
+        }, ingestionExecutor)
         .whenComplete((res, ex) -> {
           uploadPermits.release();
           if (ex != null) {
