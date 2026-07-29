@@ -73,7 +73,7 @@ public class AuthService {
     log.debug("Procesando solicitud de registro para: {} desde IP: {}", request.email(), ipAddress);
 
     if (!authRateLimiter.tryConsumeRegister(ipAddress)) {
-      AuthLogEvent.REGISTRATION_BLOCKED_RATE_LIMIT.log(log, ipAddress); // Puedes añadir este enum a tus logs
+      AuthLogEvent.REGISTRATION_BLOCKED_RATE_LIMIT.log(log, ipAddress);
       return new RegistrationResult.TooManyRequests(
           "Demasiados intentos de registro desde tu red. Por favor, espera una hora."
       );

@@ -17,6 +17,8 @@ import lombok.Setter;
 import lombok.ToString;
 
 
+
+// TODO refactorizar esta entidad para que sea DOP ready
 @Entity
 @Table(name = "refiq_credentials")
 @Getter

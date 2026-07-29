@@ -32,3 +32,22 @@ CREATE TABLE event_publication (
     completion_date TIMESTAMP WITH TIME ZONE,
     PRIMARY KEY (id)
 );
+
+
+-- ---------------------------------------------------------
+-- V2: Creación de tabla para resultados de cálculo (Buzón)
+-- ---------------------------------------------------------
+
+CREATE TABLE calculation_results (
+    -- Usamos el mismo UUID (fileId) generado en la ingesta
+    id UUID PRIMARY KEY,
+
+    -- Estado del procesamiento (PENDING, SUCCESS, FAILED)
+    status VARCHAR(50) NOT NULL,
+
+    -- El JSON final mapeado desde R (Usamos JSONB para máximo rendimiento en Postgres)
+    payload JSONB,
+
+    -- Mensajes de error en caso de fallo en Data Lake o R
+    error_message TEXT
+);

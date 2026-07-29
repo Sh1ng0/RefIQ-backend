@@ -1,40 +1,46 @@
 package com.refiq.platform.shared.web;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * Componente global de manejo de excepciones para la API REST.
  * <p>
- * Actúa como un interceptor (AOP) que captura excepciones lanzadas por el framework (como fallos de
- * validación en DTOs o JSON mal formados) y las transforma en respuestas HTTP estructuradas y
- * limpias para el cliente.
+ * Actúa como un interceptor (AOP) que captura excepciones lanzadas por el framework y
+ * fallos técnicos de infraestructura, transformándolos en respuestas HTTP estructuradas.
  * <p>
- * Garantiza que todos los errores de validación sigan un formato consistente:
+ * Implementa el Patrón Envoltorio (Envelope), garantizando que todos los errores
+ * mantengan consistencia estructural con los fallos de dominio:
  * <pre>
  * {
- * "error": "Descripción general",
- * "details": {
- * "campo": "Mensaje de error específico"
- * }
+ *   "error": {
+ *     "error": "Descripción general",
+ *     "details": {
+ *       "campo": "Mensaje de error específico"
+ *     }
+ *   }
  * }
  * </pre>
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ApiError> handleValidationErrors(MethodArgumentNotValidException ex) {
+  public ResponseEntity<Map<String, ApiError>> handleValidationErrors(MethodArgumentNotValidException ex) {
     var errors = ex.getBindingResult().getFieldErrors().stream()
         .collect(Collectors.toMap(
             FieldError::getField,
@@ -42,26 +48,33 @@ public class GlobalExceptionHandler {
             (existing, replacement) -> existing
         ));
 
-    return ResponseEntity
-        .badRequest()
-        .body(new ApiError("Error de validación en los datos enviados", errors));
+    ApiError apiError = new ApiError("Error de validación en los datos enviados", errors);
+    return ResponseEntity.badRequest().body(Map.of("error", apiError));
   }
-
 
   @ExceptionHandler(MaxUploadSizeExceededException.class)
-  public ResponseEntity<ApiError> handleMaxSizeException(MaxUploadSizeExceededException e) {
-    return ResponseEntity
-        .status(HttpStatus.EXPECTATION_FAILED)
-        .body(new ApiError("El archivo excede el tamaño máximo permitido"));
+  public ResponseEntity<Map<String, ApiError>> handleMaxSizeException(MaxUploadSizeExceededException e) {
+    ApiError apiError = new ApiError("El archivo excede el tamaño máximo permitido");
+    return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED).body(Map.of("error", apiError));
   }
 
-  // cambiar esto a API ERROR format
-  @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
-  public ResponseEntity<Map<String, String>> handleMalformedJson() {
-    return ResponseEntity
-        .status(HttpStatus.BAD_REQUEST)
-        .body(Map.of("error", "El cuerpo de la petición (JSON) es inválido o falta."));
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<Map<String, ApiError>> handleMalformedJson(HttpMessageNotReadableException e) {
+    ApiError apiError = new ApiError("El cuerpo de la petición (JSON) es inválido o falta.");
+    return ResponseEntity.badRequest().body(Map.of("error", apiError));
   }
 
+  @ExceptionHandler(UncheckedIOException.class)
+  public ResponseEntity<Map<String, ApiError>> handleUncheckedIOException(UncheckedIOException e) {
+    log.error("Error crítico de I/O en la infraestructura", e);
+    ApiError apiError = new ApiError("Error interno del servidor al procesar el archivo.");
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", apiError));
+  }
 
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<Map<String, ApiError>> handleGenericException(Exception e) {
+    log.error("Error no controlado en la plataforma", e);
+    ApiError apiError = new ApiError("Error inesperado en el servidor.");
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", apiError));
+  }
 }

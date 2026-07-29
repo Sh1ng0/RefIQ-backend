@@ -1,6 +1,6 @@
 package com.refiq.platform.calculation.internal.adapter.plumber;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+
 import com.fasterxml.jackson.databind.JsonNode; // Necesario para leer errores dinámicos
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory; // Para timeouts básicos
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -72,13 +74,19 @@ public class PlumberAdapter implements AnalysisPort {
   /**
    * {@inheritDoc}
    * <p>
-   * This implementation performs a synchronous HTTP POST to the R container. It handles the
-   * response manually to parse specific JSON error messages returned by Plumber.
+   * This implementation performs a synchronous HTTP POST to the R container.
+   * Tolerates transient network failures and 500 errors by retrying locally with an exponential backoff.
    * </p>
    *
-   * @throws DataInconsistencyException If the engine returns 422 (valid request, invalid data).
-   * @throws EngineUnavailableException If the engine returns 500 or cannot be reached.
+   * @throws DataInconsistencyException If the engine returns 422 (valid request, invalid data). Not retryable.
+   * @throws EngineUnavailableException If the engine returns 500 or cannot be reached after all retries.
    */
+  @Retryable(
+      retryFor = { Exception.class }, // Atrapa timeouts, RestClientException, EngineUnavailableException, etc.
+      exclude = { DataInconsistencyException.class }, // ¡Fail fast! No reintentar si el CSV está mal.
+      maxAttempts = 3,
+      backoff = @Backoff(delay = 2000, multiplier = 2) // Espera 2s, luego 4s antes del último intento.
+  )
   @Override
   public CalculationResponse calculate(CalculationRequest request) {
     String presignedUrl = generatePresignedUrl(request.s3Key());
@@ -108,15 +116,14 @@ public class PlumberAdapter implements AnalysisPort {
             String errorBody = new String(res.getBody().readAllBytes());
             String errorReason = extractErrorMessage(errorBody);
 
-            CalculationLogEvent.R_TECHNICAL_ERROR.log(log,
-                res.getStatusCode() + " - " + errorReason);
-
+            CalculationLogEvent.R_TECHNICAL_ERROR.log(log, res.getStatusCode() + " - " + errorReason);
 
             if (res.getStatusCode().value() == 422) {
+              // Sube de inmediato, el 'exclude' de @Retryable evita que vuelva a intentarlo
               throw new DataInconsistencyException(errorReason);
             } else {
-              throw new EngineUnavailableException(
-                  "Error R (" + res.getStatusCode() + "): " + errorReason);
+              // Dispara el reintento de Spring (hasta 3 veces)
+              throw new EngineUnavailableException("Error R (" + res.getStatusCode() + "): " + errorReason);
             }
           }
         });

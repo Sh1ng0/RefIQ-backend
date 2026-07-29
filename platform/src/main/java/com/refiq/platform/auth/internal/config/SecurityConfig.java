@@ -1,7 +1,7 @@
 package com.refiq.platform.auth.internal.config;
 
-import com.refiq.platform.auth.internal.security.DataLakeApiKeyFilter;
 import com.refiq.platform.auth.internal.security.JwtAuthenticationFilter;
+import com.refiq.platform.auth.internal.security.WebhookApiKeyFilter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,7 +31,7 @@ public class SecurityConfig {
 
 
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
-  private final DataLakeApiKeyFilter dataLakeApiKeyFilter;
+  private final WebhookApiKeyFilter webhookApiKeyFilter;
 
   @Value("${refiq.security.cors.allowed-origins}")
   private List<String> allowedOrigins;
@@ -53,11 +53,11 @@ public class SecurityConfig {
 
             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
             .requestMatchers("/actuator/health/**").permitAll()
-            .requestMatchers("/api/v1/calculations/**").permitAll()
+
 
             .anyRequest().authenticated()
         )
-        .addFilterBefore(dataLakeApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
+        .addFilterBefore(webhookApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
@@ -74,7 +74,7 @@ public class SecurityConfig {
     configuration.setAllowedOrigins(allowedOrigins);
 
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-    configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+    configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With","X-RefIQ-Webhook-Token"));
     configuration.setAllowCredentials(true);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
