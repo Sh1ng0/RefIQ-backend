@@ -27,7 +27,7 @@ public record CalculationResponse(
   public record LabResult(
       @JsonProperty("test_code") String testCode,
       String name,
-      Double value, // Deuda quitar esto
+      Double value,
 
       // Puede ser null si el CSV solo tiene población
       String unit,

@@ -34,7 +34,7 @@ public class UserService {
   @ApplicationModuleListener
   void on(UserRegisteredEvent event) {
     var newProfile = UserProfile.builder()
-        .id(event.accountId()) // ¡Nuestro UUID actuando de Foreign Key Lógica!
+        .id(event.accountId()) // El UID hace de foreign key lógica
         .name(event.userName())
         .contactEmail(event.contactEmail())
         .build();

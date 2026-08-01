@@ -9,7 +9,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.UUID;
-
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 // TODO refactorizar esto para que sea DOP ready (jOOQ / Spring JDBC)
 
@@ -57,8 +58,7 @@ public class CalculationResultEntity {
    * specific analyte values) directly at the database level.
    * </p>
    */
-  // Usamos JSONB para Postgres, así si el día de mañana quieres hacer
-  // queries dentro del JSON (ej. "búscame resultados con glucosa > 100"), puedes.
+  @JdbcTypeCode(SqlTypes.JSON) // <--- ¡LA MAGIA DE HIBERNATE 6!
   @Column(name = "payload", columnDefinition = "JSONB")
   private String payload;
 

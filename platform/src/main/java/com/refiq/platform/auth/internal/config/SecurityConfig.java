@@ -26,6 +26,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
+
+// TODO EL OBJETIVO ES BORRAR ESTO
 @Profile({"!test", "security"})
 public class SecurityConfig {
 

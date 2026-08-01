@@ -46,24 +46,13 @@ public class PlumberAdapter implements AnalysisPort {
   private final Duration presignedUrlDuration;
 
   public PlumberAdapter(
-      RestClient.Builder builder,
+      RestClient plumberRestClient, // ¡Inyectamos el bean directamente!
       S3Presigner s3Presigner,
       ObjectMapper objectMapper,
-      @Value("${plumber.api.url}") String baseUrl,
       @Value("${refiq.storage.s3.bucket-name}") String bucketName,
-      @Value("${plumber.presigned.duration-minutes:10}") long durationMinutes,
-      @Value("${plumber.timeout.read-seconds:60}") int readTimeoutSeconds) {
+      @Value("${plumber.presigned.duration-minutes:10}") long durationMinutes) {
 
-
-    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-    factory.setConnectTimeout(5000);
-    factory.setReadTimeout(readTimeoutSeconds * 1000);
-
-    this.restClient = builder
-        .baseUrl(baseUrl)
-        .requestFactory(factory)
-        .build();
-
+    this.restClient = plumberRestClient;
     this.s3Presigner = s3Presigner;
     this.objectMapper = objectMapper;
     this.bucketName = bucketName;
