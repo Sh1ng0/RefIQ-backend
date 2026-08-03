@@ -1,6 +1,7 @@
 package com.refiq.platform.support.slices;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.refiq.platform.auth.internal.security.JwtProvider;
 import com.refiq.platform.auth.internal.security.WebhookApiKeyFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -8,6 +9,7 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -16,10 +18,10 @@ import org.springframework.test.web.servlet.MockMvc;
  * de validación de tokens de MinIO.
  */
 @ActiveProfiles("test")
-@ImportAutoConfiguration(exclude = {SecurityAutoConfiguration.class}) // Apagamos la seguridad JWT/Basic
-@Import(WebhookApiKeyFilter.class) // Encendemos tu filtro específico
+@ImportAutoConfiguration(exclude = {SecurityAutoConfiguration.class})
+@Import(WebhookApiKeyFilter.class)
 @TestPropertySource(properties = {
-    // Satisface la propiedad que exige el filtro
+
     "refiq.webhooks.minio.api-key=test-webhook-key"
 })
 public abstract class BaseWebWithApiKeyTest {
@@ -29,6 +31,9 @@ public abstract class BaseWebWithApiKeyTest {
 
   @Autowired
   protected ObjectMapper objectMapper;
+
+  @MockitoBean
+  protected JwtProvider jwtProvider;
 
   // Constantes para que los tests hijos las usen fácilmente
   protected static final String WEBHOOK_TOKEN_HEADER = "X-RefIQ-Webhook-Token";

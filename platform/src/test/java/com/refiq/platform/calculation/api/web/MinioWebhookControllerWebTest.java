@@ -43,11 +43,11 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
           org.mockito.Mockito.mock(java.util.concurrent.ExecutorService.class);
 
       org.mockito.Mockito.doAnswer(invocation -> {
-        // Extraemos la tarea que el controlador intentó mandar a background
+
         Runnable task = invocation.getArgument(0);
-        // La ejecutamos en el acto
+
         task.run();
-        // Devolvemos un Future completado para cumplir el contrato del submit()
+
         return java.util.concurrent.CompletableFuture.completedFuture(null);
       }).when(mockExecutor).submit(org.mockito.ArgumentMatchers.any(Runnable.class));
 
@@ -94,7 +94,7 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
             }
             """;
 
-    // Simulamos una respuesta de éxito del servicio
+
     CalculationResponse.LabResult labResult = new CalculationResponse.LabResult(
         "TSH", "Hormona", 2.5, "mIU/L", "0.4-4.0", null
     );
@@ -108,7 +108,7 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
             .content(payload))
         .andExpect(status().isOk());
 
-    // Verificamos que el controlador parseó bien la clave "TSH" y llamó al servicio
+
     verify(calculationService).runAnalysis(
         org.mockito.ArgumentMatchers.argThat(req ->
             req.s3Key().equals("3.Gold/TSH/TSH_data.parquet") &&
@@ -142,7 +142,7 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
             .content(payload))
         .andExpect(status().isOk());
 
-    // Verificamos que NUNCA llamó al servicio porque el if filtró la ruta
+    
     verify(calculationService, never()).runAnalysis(any());
   }
 }

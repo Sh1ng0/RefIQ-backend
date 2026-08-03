@@ -14,6 +14,7 @@ import com.refiq.platform.auth.internal.repository.CredentialRepository;
 import com.refiq.platform.auth.internal.security.AuthRateLimiter;
 import com.refiq.platform.auth.internal.security.JwtProvider;
 import com.refiq.platform.support.slices.BasePostgresTest;
+import com.refiq.platform.support.slices.RefiqModuleTest;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,13 +22,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.modulith.test.ApplicationModuleTest;
+import org.springframework.modulith.test.PublishedEvents;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-@ApplicationModuleTest
-// TODO MOdificar esto cuando se borre la puerta lógica de perfiles en la clase base
-@ActiveProfiles({"test", "security"})
+
+@RefiqModuleTest
 @DisplayName("Auth - Service Layer (Postgres Integration)")
 class AuthServiceIntegrationTest extends BasePostgresTest {
 
@@ -40,24 +41,24 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   @Autowired
   private PasswordEncoder passwordEncoder;
 
-  // Neutralizamos el Rate Limiter para no tener "flaky tests" por culpa de la memoria
+  // Off to avoid flaky tests
   @MockitoBean
   private AuthRateLimiter authRateLimiter;
 
-  // Mockeamos la generación de JWT, eso lo probaremos en su test unitario correspondiente
+
   @MockitoBean
   private JwtProvider jwtProvider;
 
   @BeforeEach
   void setUp() {
-    // Por defecto, permitimos todo el tráfico en el Rate Limiter
+
     when(authRateLimiter.tryConsumeRegister(anyString())).thenReturn(true);
     when(authRateLimiter.tryConsumeLogin(anyString())).thenReturn(true);
   }
 
   @Test
-  @DisplayName("Debe registrar un usuario y persistir las credenciales encriptadas")
-  void shouldRegisterUserAndPersistCredentials() {
+  @DisplayName("Debe registrar un usuario, persistir credenciales y publicar evento")
+  void shouldRegisterUserAndPersistCredentials(org.springframework.modulith.test.PublishedEvents events) {
     // GIVEN
     RegisterUserRequest request = new RegisterUserRequest("Lab Data", "dbtest@refiq.com", "Password123!");
     String ipAddress = "192.168.1.100";
@@ -68,17 +69,25 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
     // THEN
     assertThat(result).isInstanceOf(RegistrationResult.Success.class);
 
-    // Verificamos el impacto real en Postgres
+
     Optional<Credential> savedCredential = credentialRepository.findByEmail("dbtest@refiq.com");
     assertThat(savedCredential).isPresent();
     assertThat(passwordEncoder.matches("Password123!", savedCredential.get().getPasswordHash())).isTrue();
+
+    var publishedEvents = events.ofType(com.refiq.platform.auth.api.event.UserRegisteredEvent.class);
+    assertThat(publishedEvents).hasSize(1);
+
+    var event = publishedEvents.iterator().next();
+    assertThat(event.contactEmail()).isEqualTo("dbtest@refiq.com");
+    assertThat(event.userName()).isEqualTo("Lab Data");
+    assertThat(event.accountId()).isEqualTo(savedCredential.get().getId());
   }
 
   @Test
   @DisplayName("Debe devolver EmailAlreadyExists si el correo ya está en base de datos")
   void shouldReturnEmailAlreadyExists() {
     // GIVEN
-    // Inyectamos el usuario directo en DB
+
     Credential existingUser = Credential.builder()
         .email("duplicado@refiq.com")
         .passwordHash(passwordEncoder.encode("oldPassword!"))
@@ -98,7 +107,7 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   @DisplayName("Debe bloquear el registro si el Rate Limiter lo indica")
   void shouldBlockRegistrationOnRateLimitExceeded() {
     // GIVEN
-    // Forzamos al mock a simular un ataque de fuerza bruta
+
     when(authRateLimiter.tryConsumeRegister("10.0.0.1")).thenReturn(false);
     RegisterUserRequest request = new RegisterUserRequest("Spam", "spam@refiq.com", "Pass123!");
 
@@ -107,7 +116,7 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
 
     // THEN
     assertThat(result).isInstanceOf(RegistrationResult.TooManyRequests.class);
-    // Verificamos que no se ha tocado la DB
+
     assertThat(credentialRepository.findByEmail("spam@refiq.com")).isEmpty();
   }
 

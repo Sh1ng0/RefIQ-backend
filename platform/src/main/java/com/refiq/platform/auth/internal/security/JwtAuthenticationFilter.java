@@ -36,7 +36,7 @@ import java.util.Collections;
  */
 @Component
 @RequiredArgsConstructor
-@Profile({"!test", "security"})
+
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
   private final JwtProvider jwtProvider;

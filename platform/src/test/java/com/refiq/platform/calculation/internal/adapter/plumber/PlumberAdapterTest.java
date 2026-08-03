@@ -44,7 +44,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
         "plumber.timeout.read-seconds=1"
     }
 )
-// Importamos AOP para que Spring pueda generar el proxy de @Retryable
+// Import to test Retryable
 @Import({AopAutoConfiguration.class, PlumberAdapterTest.PlumberTestConfig.class})
 @DisplayName("Calculation - Plumber Adapter (RestClientTest)")
 class PlumberAdapterTest {
@@ -67,8 +67,7 @@ class PlumberAdapterTest {
         RestClient.Builder builder,
         @org.springframework.beans.factory.annotation.Value("${plumber.api.url}") String baseUrl) {
 
-      // Construimos el cliente usando el Builder "mágico" de @RestClientTest.
-      // Al no añadirle ningún Custom Factory, la intercepción de red funciona.
+
       return builder.baseUrl(baseUrl).build();
     }
   }
@@ -77,7 +76,7 @@ class PlumberAdapterTest {
   void setUp() throws Exception {
     mockServer.reset();
 
-    // Mockeamos S3 para que devuelva una URL falsa al vuelo
+
     PresignedGetObjectRequest mockPresignedReq = mock(PresignedGetObjectRequest.class);
     when(mockPresignedReq.url()).thenReturn(new URL("https://fake-s3.amazonaws.com/file.parquet"));
     when(s3Presigner.presignGetObject(any(software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest.class)))
@@ -115,13 +114,13 @@ class PlumberAdapterTest {
 
     // THEN
     assertThat(response.labResult().referenceRange()).isEqualTo("0.4 - 4.0");
-    mockServer.verify(); // Verifica que se llamó exactamente el número de veces esperado
+    mockServer.verify();
   }
 
   @Test
   @DisplayName("Debe lanzar DataInconsistencyException y NO reintentar si R responde 422")
   void shouldFailFastOn422() {
-    // GIVEN: El CSV está mal
+    // GIVEN
     mockServer.expect(ExpectedCount.once(), requestTo("http://fake-plumber/calculate-ri"))
         .andRespond(withStatus(HttpStatus.UNPROCESSABLE_ENTITY)
             .body("{\"error\": \"Falta columna analyte_value\"}"));
@@ -133,13 +132,13 @@ class PlumberAdapterTest {
         .isInstanceOf(PlumberAdapter.DataInconsistencyException.class)
         .hasMessage("Falta columna analyte_value");
 
-    mockServer.verify(); // Como ExpectedCount.once(), sabemos que @Retryable no actuó
+    mockServer.verify();
   }
 
   @Test
   @DisplayName("Debe reintentar 3 veces y lanzar EngineUnavailableException si R responde 500")
   void shouldRetryOn500() {
-    // GIVEN: Le decimos al Mock que espere EXACTAMENTE 3 llamadas
+
     mockServer.expect(ExpectedCount.times(3), requestTo("http://fake-plumber/calculate-ri"))
         .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR)
             .body("{\"error\": \"Kernel panic\"}"));
@@ -151,6 +150,6 @@ class PlumberAdapterTest {
         .isInstanceOf(PlumberAdapter.EngineUnavailableException.class)
         .hasMessageContaining("Error R (500 INTERNAL_SERVER_ERROR)");
 
-    mockServer.verify(); // Verifica que hizo exactamente los 3 intentos
+    mockServer.verify();
   }
 }

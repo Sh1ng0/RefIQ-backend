@@ -13,22 +13,22 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Esqueleto base para tests de controladores (WebMvcTest) que requieren el contexto
- * de seguridad completo. Carga MockMvc, levanta los filtros reales de Spring Security
- * pero mockea el proveedor criptográfico para evitar sobrecarga.
+ * Esqueleto base para tests de controladores (WebMvcTest) que requieren el contexto de seguridad
+ * completo. Carga MockMvc, levanta los filtros reales de Spring Security pero mockea el proveedor
+ * criptográfico para evitar sobrecarga.
  */
-@ActiveProfiles({"test", "security"}) // Encendemos tu SecurityConfig
+@ActiveProfiles({"test", "security"})
 @Import({
     SecurityConfig.class,
     JwtAuthenticationFilter.class,
     WebhookApiKeyFilter.class
 })
 @TestPropertySource(properties = {
-    // Satisface el @Value de SecurityConfig
+
     "refiq.security.cors.allowed-origins=*",
-    // Satisface el @Value de WebhookApiKeyFilter
+
     "refiq.webhooks.minio.api-key=test-webhook-key",
-    // Por si algún bean lo requiere implícitamente
+
     "refiq.security.jwt.secret=MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=",
     "refiq.security.jwt.expiration-ms=900000"
 })
@@ -40,8 +40,6 @@ public abstract class BaseWebWithAuthTest {
   @Autowired
   protected ObjectMapper objectMapper;
 
-  // Mockeamos la criptografía. Los tests hijos decidirán cómo se comporta,
-  // o usarán @WithMockUser para saltarse el filtro limpiamente.
   @MockitoBean
   protected JwtProvider jwtProvider;
 

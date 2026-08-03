@@ -18,6 +18,7 @@ import com.refiq.platform.calculation.internal.repository.entity.CalculationResu
 import com.refiq.platform.calculation.internal.repository.entity.CalculationStatus;
 import com.refiq.platform.ingestion.api.event.FileAcceptedEvent;
 import com.refiq.platform.support.slices.BasePostgresTest;
+import com.refiq.platform.support.slices.RefiqModuleTest;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
@@ -29,8 +30,7 @@ import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-@ApplicationModuleTest
-@ActiveProfiles("test")
+@RefiqModuleTest
 @DisplayName("Calculation - Service & Persistence (Postgres Integration)")
 class CalculationServiceIntegrationTest extends BasePostgresTest {
 
@@ -43,7 +43,7 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
   @Autowired
   private CalculationTrackingListener trackingListener;
 
-  // Mockeamos la API externa porque ya la testeamos en el PlumberAdapterTest
+
   @MockitoBean
   private AnalysisPort analysisPort;
 
@@ -60,7 +60,7 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
     // WHEN
     trackingListener.on(event);
 
-    // THEN: Esperamos de forma reactiva a que el hilo asíncrono [task-1] termine de guardar en BD
+    // THEN
     await()
         .atMost(Duration.ofSeconds(3))
         .pollInterval(Duration.ofMillis(100))
@@ -76,7 +76,7 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
   void shouldProcessAndSaveSuccess() {
     // GIVEN
     UUID fileId = UUID.randomUUID();
-    // Simulamos que el evento ya creó la entidad en la BD
+
     repository.save(CalculationResultEntity.builder()
         .id(fileId)
         .status(CalculationStatus.PENDING)
@@ -85,7 +85,7 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
     String s3Key = "3.Gold/TSH/" + fileId + "-data.parquet";
     CalculationRequest request = new CalculationRequest(s3Key, 0.025, 0.975, "TSH");
 
-    // R nos responde con éxito
+
     CalculationResponse.LabResult labResult = new CalculationResponse.LabResult(
         "TSH", "Analysis", 2.5, "mIU/L", "0.5-4.0", "OK"
     );
@@ -97,7 +97,6 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
     // THEN
     assertThat(result).isInstanceOf(CalculationResult.Success.class);
 
-    // Verificamos que Postgres se actualizó correctamente
     CalculationResultEntity entity = repository.findById(fileId).get();
     assertThat(entity.getStatus()).isEqualTo(CalculationStatus.SUCCESS);
     assertThat(entity.getPayload()).contains("0.5-4.0"); // Verifica que el JSON se serializó bien
@@ -108,7 +107,7 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
   void shouldReturnAlreadyHandledIfClaimed() {
     // GIVEN
     UUID fileId = UUID.randomUUID();
-    // Simulamos que un webhook anterior ya lo procesó y está en SUCCESS
+
     repository.save(CalculationResultEntity.builder()
         .id(fileId)
         .status(CalculationStatus.SUCCESS)
@@ -126,7 +125,7 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
     CalculationResult.AlreadyHandled handled = (CalculationResult.AlreadyHandled) result;
     assertThat(handled.status()).isEqualTo("SUCCESS");
 
-    // CRÍTICO: Verificamos que NUNCA llamó al motor de R (ahorro de costes e idempotencia)
+    // CRÍTICO
     verify(analysisPort, never()).calculate(any());
   }
 }

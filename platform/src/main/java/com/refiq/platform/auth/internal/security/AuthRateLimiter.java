@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Protects the login flow (by email) and the registration flow (by IP).
  */
 @Component
-@Profile({"!test", "security"})
+
 public class AuthRateLimiter {
 
   private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();

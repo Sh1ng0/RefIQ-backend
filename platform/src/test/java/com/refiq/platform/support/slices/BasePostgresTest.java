@@ -11,8 +11,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @ActiveProfiles("test")
 @Transactional
 @TestPropertySource(properties = {
-    "spring.jpa.hibernate.ddl-auto=create-drop", // Igual que tenías en AuthBaseIntegrationTest
-    "spring.flyway.enabled=false"                // Apagamos Flyway para evitar conflictos entre módulos aislados
+    "spring.jpa.hibernate.ddl-auto=create-drop",
+    "spring.flyway.enabled=false"
 })
 public abstract class BasePostgresTest {
 

@@ -35,7 +35,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@Profile({"!test", "security"})
+
 public class AuthController implements AuthApi{
 
   private final AuthService authService;

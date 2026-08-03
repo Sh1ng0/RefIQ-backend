@@ -39,7 +39,7 @@ class UserControllerWebTest extends BaseWebWithAuthTest {
 
     when(userService.getProfile(myUserId)).thenReturn(Optional.of(mockedResponse));
 
-    // Creamos el principal exacto que tu JwtAuthenticationFilter genera en producción
+
     var authPrincipal = new UsernamePasswordAuthenticationToken(myUserId, null, Collections.emptyList());
 
     // WHEN & THEN

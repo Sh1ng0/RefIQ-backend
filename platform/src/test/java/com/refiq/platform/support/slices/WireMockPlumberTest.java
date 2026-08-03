@@ -19,7 +19,7 @@ public abstract class WireMockPlumberTest {
   @Autowired
   protected ObjectMapper objectMapper;
 
-  // Mockeamos el generador de URLs de AWS para que no intente buscar credenciales
+
   @MockitoBean
   protected S3Presigner s3Presigner;
 }

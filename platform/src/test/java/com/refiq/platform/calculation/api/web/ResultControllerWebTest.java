@@ -21,12 +21,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @DisplayName("Calculation - Result Web Layer (Isolated)")
 class ResultControllerWebTest extends BaseWebWithAuthTest {
 
-  // Mockeamos la base de datos para controlar la máquina de estados
+
   @MockitoBean
   private CalculationResultRepository repository;
 
   @Test
-  @WithMockUser // Simulamos que el usuario tiene un JWT válido
+  @WithMockUser
   @DisplayName("Debe devolver 202 ACCEPTED si el cálculo está PENDING")
   void shouldReturn202WhenPending() throws Exception {
     // GIVEN
