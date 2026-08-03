@@ -26,15 +26,18 @@ public class UserService {
   private final UserProfileRepository profileRepository;
 
   /**
-   * Catches the event emitted by the Auth module and creates the hospital profile.
-   * By using @ApplicationModuleListener, Modulith guarantees the delivery of the event.
-   *
-   * @param event The domain event containing the new user's basic information.
+   * Core service responsible for managing the read and write operations of the User module.
+   * <p>
+   * <b>Event-Driven Consumer:</b> This service acts as a subscriber in the platform's asynchronous
+   * topology. It relies on Spring Modulith's {@code @ApplicationModuleListener} to guarantee the
+   * transactional delivery of cross-module events, such as the initial profile creation triggered
+   * by the Auth module.
+   * </p>
    */
   @ApplicationModuleListener
   void on(UserRegisteredEvent event) {
     var newProfile = UserProfile.builder()
-        .id(event.accountId()) // ¡Nuestro UUID actuando de Foreign Key Lógica!
+        .id(event.accountId()) // El UID hace de foreign key lógica
         .name(event.userName())
         .contactEmail(event.contactEmail())
         .build();

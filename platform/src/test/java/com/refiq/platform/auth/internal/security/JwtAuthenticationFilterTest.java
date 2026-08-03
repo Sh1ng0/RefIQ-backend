@@ -43,15 +43,14 @@ class JwtAuthenticationFilterTest {
 
   @BeforeEach
   void setUp() {
-    // Spring nos da estas clases para simular peticiones HTTP sin levantar Tomcat
+
     request = new MockHttpServletRequest();
     response = new MockHttpServletResponse();
   }
 
   @AfterEach
   void tearDown() {
-    // ¡VITAL! El SecurityContextHolder guarda los datos en el hilo actual (ThreadLocal).
-    // Hay que limpiarlo después de cada test para que no contamine al siguiente.
+
     SecurityContextHolder.clearContext();
   }
 

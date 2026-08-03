@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 @DisplayName("JwtProvider - Unit Tests")
 class JwtProviderTest {
 
-  // (la misma del properties de test)
+
   private static final String SECRET = "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=";
   private static final long EXPIRATION_MS = 900000; // 15 minutos
 
@@ -78,7 +78,6 @@ class JwtProviderTest {
     UUID userId = UUID.randomUUID();
     String validToken = jwtProvider.generateToken(userId);
 
-    // ...pero un Hacker intenta validarlo en un servidor (Provider) que usa OTRA clave secreta
     String hackerSecret = "OTg3NjU0MzIxMDk4NzY1NDMyMTA5ODc2NTQzMjEwOTg=";
     JwtProvider hackedProvider = new JwtProvider(hackerSecret, EXPIRATION_MS);
 

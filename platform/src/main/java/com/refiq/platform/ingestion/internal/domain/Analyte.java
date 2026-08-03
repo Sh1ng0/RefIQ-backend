@@ -18,8 +18,13 @@ public enum Analyte {
   ALP, CRE, FT4, GGT, TSH;
 
   public static Optional<Analyte> fromString(String value) {
+    if (value == null || value.isBlank()) {
+      return Optional.empty();
+    }
+
+    String cleanValue = value.trim();
     return Arrays.stream(Analyte.values())
-        .filter(a -> a.name().equalsIgnoreCase(value))
+        .filter(a -> a.name().equalsIgnoreCase(cleanValue))
         .findFirst();
   }
 }

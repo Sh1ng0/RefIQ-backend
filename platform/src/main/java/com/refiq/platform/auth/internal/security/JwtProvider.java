@@ -43,7 +43,7 @@ import java.util.UUID;
  * </p>
  */
 @Component
-@Profile({"!test", "security"})
+
 public class JwtProvider {
 
   private static final Logger log = LoggerFactory.getLogger(JwtProvider.class);

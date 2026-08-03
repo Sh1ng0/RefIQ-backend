@@ -29,26 +29,18 @@ import org.springframework.transaction.annotation.Transactional;
  * This service operates within a stateless architecture, utilizing JSON Web Tokens (JWT) for
  * authorization. It strictly adheres to Data-Oriented Programming (DOP) principles by returning
  * sealed interface result types (e.g., {@link RegistrationResult}, {@link LoginResult}) instead of
- * throwing exceptions for business logic deviations (such as invalid credentials or rate limits).
+ * throwing exceptions for business logic deviations.
  * </p>
  * <p>
- * Key responsibilities include:
- * <ul>
- * <li>Secure user registration with password hashing.</li>
- * <li>Authentication verification against persisted credentials.</li>
- * <li>Brute-force mitigation via in-memory rate limiting prior to database access.</li>
- * <li>Delegation of JWT generation upon successful authentication.</li>
- * </ul>
- * </p>
- * <p>
- * <b>Profile Configuration:</b> Active by default in normal execution ({@code !test}).
- * In testing environments, this component is excluded to prevent security context pollution
- * across other modules, unless the {@code security} profile is explicitly activated.
+ * <b>Event-Driven Architecture:</b> This service acts as a primary Publisher. Upon successful
+ * user registration, it broadcasts a {@link UserRegisteredEvent} to the application context.
+ * This allows other business modules (e.g., the User module) to react asynchronously without
+ * creating tight structural coupling.
  * </p>
  */
 @Service
 @RequiredArgsConstructor
-@Profile({"!test", "security"})
+
 public class AuthService {
 
 
