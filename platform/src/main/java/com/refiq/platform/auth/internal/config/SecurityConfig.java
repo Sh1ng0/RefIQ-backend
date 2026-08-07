@@ -27,7 +27,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 @RequiredArgsConstructor
 
-// TODO EL OBJETIVO ES BORRAR ESTO
+
 
 public class SecurityConfig {
 
@@ -52,7 +52,7 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
 
             .requestMatchers("/api/register", "/api/login").permitAll()
-
+            .requestMatchers("/api/v1/webhooks/**").permitAll()
             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
             .requestMatchers("/actuator/health/**").permitAll()
 

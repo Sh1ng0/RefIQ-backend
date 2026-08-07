@@ -5,9 +5,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 
-// 1. Ni rastro de @Import
-// 2. Ni rastro de @TestConfiguration
-// Todo eso ya lo inyecta magistralmente @RefiqModuleTest
+
 public abstract class BaseS3Test extends BasePostgresTest {
 
   protected static final LocalStackContainer s3Container = GlobalS3Container.INSTANCE.getContainer();
