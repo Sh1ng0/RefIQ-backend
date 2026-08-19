@@ -11,15 +11,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @ActiveProfiles("test")
 @Transactional
 @TestPropertySource(properties = {
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.flyway.enabled=false"
+    // Activamos Flyway para que inyecte V1__init_schema.sql en Testcontainers
+    "spring.flyway.enabled=true"
 })
 public abstract class BasePostgresTest {
 
-  /**
-   * Inyección explícita e indestructible del Singleton.
-   * Spring inyectará estas propiedades en su contexto antes de intentar levantar JPA.
-   */
   @DynamicPropertySource
   static void configureProperties(DynamicPropertyRegistry registry) {
     PostgreSQLContainer<?> postgres = GlobalPostgresContainer.INSTANCE.getContainer();

@@ -57,19 +57,15 @@
         <scope>import</scope>
       </dependency>
 
-
-
       <dependency>
         <groupId>software.amazon.awssdk</groupId>
         <artifactId>s3-presigner</artifactId>
       </dependency>
 
-
-
       <dependency>
         <groupId>org.testcontainers</groupId>
         <artifactId>testcontainers-bom</artifactId>
-        <version>1.19.7</version>
+        <version>1.20.4</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -87,10 +83,7 @@
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-jpa</artifactId>
-    </dependency>
+
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
@@ -179,9 +172,16 @@
     </dependency>
 
     <dependency>
-      <groupId>org.springframework.modulith</groupId>
-      <artifactId>spring-modulith-starter-jpa</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jooq</artifactId>
     </dependency>
+
+<!--    Volver a poner cuando termine la migracion-->
+<!--    <dependency>-->
+<!--      <groupId>org.springframework.modulith</groupId>-->
+<!--      <artifactId>spring-modulith-starter-jdbc</artifactId>-->
+<!--    </dependency>-->
+
 
     <dependency>
       <groupId>org.flywaydb</groupId>
@@ -278,14 +278,106 @@
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>aws-crt-client</artifactId>
     </dependency>
+
+    <!-- ========================================== -->
+    <!-- MODO STRANGLER FIG: Dependencias Legacy    -->
+    <!-- (A eliminar cuando Calculation e Ingestion -->
+    <!-- pasen a jOOQ)                              -->
+    <!-- ========================================== -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-starter-jpa</artifactId>
+    </dependency>
+
   </dependencies>
+
+
 
 
   <build>
     <plugins>
+      <!-- 1. El empaquetador de Spring Boot (Vital para el .jar final) -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+            </exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+
+      <!-- 2. Flyway: Prepara el terreno en el contenedor efímero -->
+      <plugin>
+        <groupId>org.flywaydb</groupId>
+        <artifactId>flyway-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>migrate</goal>
+            </goals>
+            <configuration>
+              <url>jdbc:postgresql://localhost:5433/refiq_build_db</url>
+              <user>jooq_user</user>
+              <password>jooq_pass</password>
+              <locations>
+                <location>filesystem:src/main/resources/db/migration</location>
+              </locations>
+            </configuration>
+          </execution>
+        </executions>
+
+      </plugin>
+
+      <!-- 3. jOOQ: Tu configuración actual (lee lo que Flyway acaba de crear) -->
+      <plugin>
+        <groupId>org.jooq</groupId>
+        <artifactId>jooq-codegen-maven</artifactId>
+        <executions>
+          <execution>
+            <id>jooq-codegen</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <configuration>
+              <jdbc>
+                <driver>org.postgresql.Driver</driver>
+                <url>jdbc:postgresql://localhost:5433/refiq_build_db</url>
+                <user>jooq_user</user>
+                <password>jooq_pass</password>
+              </jdbc>
+              <generator>
+                <database>
+                  <name>org.jooq.meta.postgres.PostgresDatabase</name>
+                  <includes>.*</includes>
+                  <excludes>flyway_schema_history | event_publication</excludes>
+                  <inputSchema>public</inputSchema>
+                </database>
+
+                <generate>
+                  <records>true</records>
+                  <fluentSetters>true</fluentSetters>
+                </generate>
+
+                <target>
+                  <packageName>com.refiq.platform.shared.db.generated</packageName>
+                  <directory>target/generated-sources/jooq</directory>
+                </target>
+              </generator>
+            </configuration>
+          </execution>
+        </executions>
+
       </plugin>
     </plugins>
   </build>

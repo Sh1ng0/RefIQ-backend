@@ -6,10 +6,9 @@ import com.refiq.platform.auth.api.dto.LoginResult;
 import com.refiq.platform.auth.api.dto.RegisterUserRequest;
 import com.refiq.platform.auth.api.dto.RegistrationResponse;
 import com.refiq.platform.auth.api.dto.RegistrationResult;
-
 import com.refiq.platform.auth.api.event.UserRegisteredEvent;
 import com.refiq.platform.auth.internal.domain.Credential;
-import com.refiq.platform.auth.internal.repository.CredentialRepository;
+import com.refiq.platform.auth.internal.repository.DbCredentialRepository; // Nuestro nuevo repo
 import com.refiq.platform.auth.internal.security.JwtProvider;
 import com.refiq.platform.auth.internal.security.AuthRateLimiter;
 import java.util.UUID;
@@ -17,11 +16,9 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 
 /**
  * Core service responsible for orchestrating user authentication and registration workflows.
@@ -40,30 +37,20 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
-
 public class AuthService {
-
 
   private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-  private final CredentialRepository credentialRepository;
-
+  // Inyectamos el repositorio Data-Oriented
+  private final DbCredentialRepository credentialRepository;
   private final PasswordEncoder passwordEncoder;
-
   private final JwtProvider jwtProvider;
-
   private final AuthRateLimiter authRateLimiter;
-
   private final ApplicationEventPublisher eventPublisher;
-
 
   @Transactional
   public RegistrationResult register(RegisterUserRequest request, String ipAddress) {
-    // Classic SLFJ4 debugging
-
-
-    log.debug("Procesando solicitud de registro para: {} desde IP: {}", request.email(), ipAddress);
-
+    AuthLogEvent.PROCESSING_REGISTRATION_REQUEST.log(log, request.email(), ipAddress);
     if (!authRateLimiter.tryConsumeRegister(ipAddress)) {
       AuthLogEvent.REGISTRATION_BLOCKED_RATE_LIMIT.log(log, ipAddress);
       return new RegistrationResult.TooManyRequests(
@@ -76,39 +63,32 @@ public class AuthService {
       return new RegistrationResult.EmailAlreadyExists(request.email());
     }
 
-    var newCredential = Credential.builder()
-        .email(request.email())
-        .passwordHash(passwordEncoder.encode(request.password()))
-        .build();
+    // Instanciación DOP: El dominio asume el control de su identidad
+    var newCredential = Credential.createNew(
+        request.email(),
+        passwordEncoder.encode(request.password())
+    );
 
-    var saved = credentialRepository.save(newCredential);
+    // Inserción explícita
+    credentialRepository.insert(newCredential);
 
-    // EVENT STUFF
+    // EVENT STUFF: Usamos los accesores nativos del record (id(), email())
     eventPublisher.publishEvent(new UserRegisteredEvent(
-        saved.getId(),
+        newCredential.id(),
         request.name(),
-        saved.getEmail()
+        newCredential.email()
     ));
 
-
-    AuthLogEvent.USER_REGISTERED.log(log, saved.getEmail(), saved.getId());
+    AuthLogEvent.USER_REGISTERED.log(log, newCredential.email(), newCredential.id());
 
     return new RegistrationResult.Success(
-        new RegistrationResponse("Usuario registrado correctamente", saved.getId().toString())
+        new RegistrationResponse("Usuario registrado correctamente", newCredential.id().toString())
     );
   }
 
-  /**
-   * Orchestrates the authentication flow. Marked as read-only since it does not modify the database,
-   * optimizing the transaction footprint.
-   *
-   * @param request The DTO containing the login credentials.
-   * @return A sealed {@link LoginResult} representing the business outcome of the operation.
-   */
   @Transactional(readOnly = true)
   public LoginResult login(LoginRequest request) {
-
-    log.debug("Procesando solicitud de login para: {}", request.email());
+    AuthLogEvent.PROCESSING_LOGIN_REQUEST.log(log, request.email());
 
     if (!authRateLimiter.tryConsumeLogin(request.email())) {
       AuthLogEvent.LOGIN_BLOCKED_RATE_LIMIT.log(log, request.email());
@@ -121,26 +101,22 @@ public class AuthService {
       AuthLogEvent.LOGIN_FAILED_INVALID_CREDENTIALS.log(log, request.email());
       return new LoginResult.InvalidCredentials();
     }
+
     var credential = credentialOpt.get();
 
-    // Error genérico por temas de seguridad
-    if (!passwordEncoder.matches(request.password(), credential.getPasswordHash())) {
+    // Accedemos al hash con el getter canónico del record: passwordHash()
+    if (!passwordEncoder.matches(request.password(), credential.passwordHash())) {
       AuthLogEvent.LOGIN_FAILED_INVALID_CREDENTIALS.log(log, request.email());
       return new LoginResult.InvalidCredentials();
     }
 
-    String token = jwtProvider.generateToken(credential.getId());
+    String token = jwtProvider.generateToken(credential.id());
 
-    AuthLogEvent.LOGIN_SUCCESS.log(log, credential.getId());
+    AuthLogEvent.LOGIN_SUCCESS.log(log, credential.id());
     return new LoginResult.Success(new LoginResponse(token));
-
   }
 
   public void logout(UUID userId) {
-    // DEBT
-    // En el futuro, aquí insertaríamos el token en una lista negra (Redis).
-    // Por ahora, solo dejamos constancia para la auditoría.
     AuthLogEvent.LOGOUT_SUCCESS.log(log, userId);
   }
-
 }
