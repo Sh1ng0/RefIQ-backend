@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.refiq.platform.auth.internal.domain.Credential;
 import com.refiq.platform.support.slices.BasePostgresTest;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -13,8 +14,8 @@ import org.springframework.boot.test.autoconfigure.jooq.JooqTest;
 import org.springframework.context.annotation.Import;
 
 /**
- * Pruebas de integración puras para la persistencia DOP usando Testcontainers.
- * Se apoya en BasePostgresTest para heredar el Singleton de PostgreSQL.
+ * Pruebas de integración puras para la persistencia DOP usando Testcontainers. Se apoya en
+ * BasePostgresTest para heredar el Singleton de PostgreSQL.
  */
 @JooqTest
 @Import(DbCredentialRepository.class)
@@ -42,8 +43,8 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
     assertThat(found.email()).isEqualTo("test@refiq.com");
     assertThat(found.passwordHash()).isEqualTo("hash_seguro");
 
-    // Verificamos que la zona horaria no se ha corrompido en el viaje a Postgres
-    assertThat(found.createdAt()).isEqualTo(newCredential.createdAt());
+    assertThat(found.createdAt().truncatedTo(ChronoUnit.MICROS))
+        .isEqualTo(newCredential.createdAt().truncatedTo(ChronoUnit.MICROS));
   }
 
   @Test
@@ -60,12 +61,11 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
 
   @Test
   @DisplayName("updatePassword debe alterar únicamente el hash y mantener la inmutabilidad de otros campos")
-  void shouldUpdatePasswordSurgically() {
+  void shouldUpdatePassword() {
     // GIVEN
     Credential original = Credential.createNew("update@refiq.com", "old_hash");
     credentialRepository.insert(original);
 
-    // Simulamos la transición de estado semántica en memoria
     Credential updatedState = original.updatePassword("new_hash");
 
     // WHEN
@@ -78,6 +78,7 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
     Credential fromDb = foundOpt.get();
     assertThat(fromDb.passwordHash()).isEqualTo("new_hash");
     assertThat(fromDb.id()).isEqualTo(original.id()); // El ID no cambia
-    assertThat(fromDb.createdAt()).isEqualTo(original.createdAt()); // La fecha no cambia
+    assertThat(fromDb.createdAt().truncatedTo(ChronoUnit.MICROS))
+        .isEqualTo(original.createdAt().truncatedTo(ChronoUnit.MICROS)); // La fecha no cambia
   }
 }

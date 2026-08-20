@@ -9,9 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 @ActiveProfiles("test")
-@Transactional
 @TestPropertySource(properties = {
-    // Activamos Flyway para que inyecte V1__init_schema.sql en Testcontainers
     "spring.flyway.enabled=true"
 })
 public abstract class BasePostgresTest {

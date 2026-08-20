@@ -16,17 +16,17 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class DbCalculationResultRepository {
 
-  private final DSLContext jooq;
+  private final DSLContext dsl;
 
-  public DbCalculationResultRepository(DSLContext jooq) {
-    this.jooq = jooq;
+  public DbCalculationResultRepository(DSLContext dsl) {
+    this.dsl = dsl;
   }
 
   /**
    * Inicializa el tracking insertando el estado PENDING.
    */
   public void insert(CalculationState.Pending state) {
-    jooq.insertInto(CALCULATION_RESULTS)
+    dsl.insertInto(CALCULATION_RESULTS)
         .set(CALCULATION_RESULTS.ID, state.id())
         .set(CALCULATION_RESULTS.STATUS, "PENDING")
         .execute();
@@ -39,7 +39,7 @@ public class DbCalculationResultRepository {
    * @return El número de filas afectadas (1 si lo reclamó con éxito, 0 si ya estaba reclamado).
    */
   public int claimPendingCalculation(UUID id) {
-    return jooq.update(CALCULATION_RESULTS)
+    return dsl.update(CALCULATION_RESULTS)
         .set(CALCULATION_RESULTS.STATUS, "PROCESSING")
         .where(CALCULATION_RESULTS.ID.eq(id))
         .and(CALCULATION_RESULTS.STATUS.eq("PENDING"))
@@ -51,7 +51,7 @@ public class DbCalculationResultRepository {
    * el record de la interfaz sellada que corresponde a su estado actual.
    */
   public Optional<CalculationState> findById(UUID id) {
-    return jooq.selectFrom(CALCULATION_RESULTS)
+    return dsl.selectFrom(CALCULATION_RESULTS)
         .where(CALCULATION_RESULTS.ID.eq(id))
         .fetchOptional(record -> {
           String status = record.getStatus();
@@ -75,12 +75,12 @@ public class DbCalculationResultRepository {
    * sin setear campos irrelevantes a NULL manualmente.
    */
   public void update(CalculationState state) {
-    var step = jooq.update(CALCULATION_RESULTS);
+    var step = dsl.update(CALCULATION_RESULTS);
 
     switch (state) {
       case CalculationState.Success s ->
           step.set(CALCULATION_RESULTS.STATUS, "SUCCESS")
-              // Convertimos el String de Java al tipo JSONB nativo de jOOQ/Postgres
+              // Java String to postgres JSONB
               .set(CALCULATION_RESULTS.PAYLOAD, JSONB.valueOf(s.payload()))
               .where(CALCULATION_RESULTS.ID.eq(s.id()))
               .execute();

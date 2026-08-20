@@ -19,10 +19,10 @@ import static com.refiq.platform.shared.db.generated.Tables.REFIQ_CREDENTIALS;
 @Repository
 public class DbCredentialRepository {
 
-  private final DSLContext jooq;
+  private final DSLContext dsl;
 
-  public DbCredentialRepository(DSLContext jooq) {
-    this.jooq = jooq;
+  public DbCredentialRepository(DSLContext dsl) {
+    this.dsl = dsl;
   }
 
   /**
@@ -30,8 +30,8 @@ public class DbCredentialRepository {
    * Reemplaza la antigua magia de Spring Data JPA con un SQL predecible.
    */
   public boolean existsByEmail(String email) {
-    return jooq.fetchExists(
-        jooq.selectOne()
+    return dsl.fetchExists(
+        dsl.selectOne()
             .from(REFIQ_CREDENTIALS)
             .where(REFIQ_CREDENTIALS.EMAIL.eq(email))
     );
@@ -43,7 +43,7 @@ public class DbCredentialRepository {
    * el mapeo directo al constructor canónico del record Credential.
    */
   public Optional<Credential> findByEmail(String email) {
-    return jooq.select(
+    return dsl.select(
             REFIQ_CREDENTIALS.ID,
             REFIQ_CREDENTIALS.EMAIL,
             REFIQ_CREDENTIALS.PASSWORD_HASH,
@@ -60,7 +60,7 @@ public class DbCredentialRepository {
    * ya es dueño de su ID y su Timestamp.
    */
   public void insert(Credential credential) {
-    jooq.insertInto(REFIQ_CREDENTIALS)
+    dsl.insertInto(REFIQ_CREDENTIALS)
         .set(REFIQ_CREDENTIALS.ID, credential.id())
         .set(REFIQ_CREDENTIALS.EMAIL, credential.email())
         .set(REFIQ_CREDENTIALS.PASSWORD_HASH, credential.passwordHash())
@@ -75,7 +75,7 @@ public class DbCredentialRepository {
    * la intención de alterar únicamente el hash de la contraseña de una credencial existente.
    */
   public void updatePassword(Credential credential) {
-    jooq.update(REFIQ_CREDENTIALS)
+    dsl.update(REFIQ_CREDENTIALS)
         .set(REFIQ_CREDENTIALS.PASSWORD_HASH, credential.passwordHash())
         .where(REFIQ_CREDENTIALS.ID.eq(credential.id()))
         .execute();

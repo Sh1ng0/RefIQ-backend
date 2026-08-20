@@ -17,10 +17,10 @@ import java.util.UUID;
 @Repository
 public class DbUserProfileRepository {
 
-  private final DSLContext jooq;
+  private final DSLContext dsl;
 
-  public DbUserProfileRepository(DSLContext jooq) {
-    this.jooq = jooq;
+  public DbUserProfileRepository(DSLContext dsl) {
+    this.dsl = dsl;
   }
 
   /**
@@ -31,7 +31,7 @@ public class DbUserProfileRepository {
 
   // COmentar en el javadoc la alineacion del Instant de Java con TIMESTAMP WITH TIME ZONE
   public void insert(UserProfile profile) {
-    jooq.insertInto(REFIQ_USER_PROFILES)
+    dsl.insertInto(REFIQ_USER_PROFILES)
         .set(REFIQ_USER_PROFILES.ID, profile.id())
         .set(REFIQ_USER_PROFILES.NAME, profile.name())
         .set(REFIQ_USER_PROFILES.CONTACT_EMAIL, profile.contactEmail())
@@ -44,7 +44,7 @@ public class DbUserProfileRepository {
    * jOOQ mapea las columnas seleccionadas directamente al constructor del Record.
    */
   public Optional<UserProfile> findById(UUID id) {
-    return jooq.select(
+    return dsl.select(
             REFIQ_USER_PROFILES.ID,
             REFIQ_USER_PROFILES.NAME,
             REFIQ_USER_PROFILES.CONTACT_EMAIL,
@@ -62,6 +62,6 @@ public class DbUserProfileRepository {
    * Limpia la tabla. Exclusivo para tearDown de tests de integración.
    */
   public void deleteAll() {
-    jooq.deleteFrom(com.refiq.platform.shared.db.generated.Tables.REFIQ_USER_PROFILES).execute();
+    dsl.deleteFrom(com.refiq.platform.shared.db.generated.Tables.REFIQ_USER_PROFILES).execute();
   }
 }

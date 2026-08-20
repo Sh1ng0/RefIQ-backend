@@ -1,5 +1,6 @@
 package com.refiq.platform.user.internal.service;
 
+import static com.refiq.platform.shared.db.generated.Tables.REFIQ_USER_PROFILES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.refiq.platform.shared.db.generated.Tables.REFIQ_CREDENTIALS;
 
@@ -15,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.jooq.DSLContext;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,12 +37,15 @@ class UserServiceIntegrationTest extends BasePostgresTest {
   private TransactionTemplate transactionTemplate;
 
   @Autowired
-  private DSLContext jooq;
+  private DSLContext dsl;
 
+  @BeforeEach
   @AfterEach
   void cleanUp() {
-    userProfileRepository.deleteAll();
-    jooq.deleteFrom(REFIQ_CREDENTIALS).execute();
+    dsl.deleteFrom(REFIQ_USER_PROFILES).execute();
+    dsl.deleteFrom(REFIQ_CREDENTIALS).execute();
+    // Vaciamos el outbox de Modulith para evitar reintentos fantasma
+    dsl.execute("TRUNCATE TABLE event_publication");
   }
 
   @Test
@@ -93,20 +98,15 @@ class UserServiceIntegrationTest extends BasePostgresTest {
   }
 
   /**
-   * Helper para saltarse las restricciones de FK inyectando infraestructura bruta.
-   * Usamos REQUIRES_NEW para forzar el commit inmediato y que el hilo asíncrono pueda verlo.
+   * Helper para inyectar infraestructura bruta.
+   * Al no tener @Transactional en la clase, esto hace commit instantáneo y natural.
    */
   private void insertDummyCredential(UUID id, String email) {
-
-    transactionTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-
-    transactionTemplate.executeWithoutResult(status -> {
-      jooq.insertInto(REFIQ_CREDENTIALS)
-          .set(REFIQ_CREDENTIALS.ID, id)
-          .set(REFIQ_CREDENTIALS.EMAIL, email)
-          .set(REFIQ_CREDENTIALS.PASSWORD_HASH, "dummy_hash")
-          .set(REFIQ_CREDENTIALS.CREATED_AT, Instant.now().atOffset(ZoneOffset.UTC))
-          .execute();
-    });
+    dsl.insertInto(REFIQ_CREDENTIALS)
+        .set(REFIQ_CREDENTIALS.ID, id)
+        .set(REFIQ_CREDENTIALS.EMAIL, email)
+        .set(REFIQ_CREDENTIALS.PASSWORD_HASH, "dummy_hash")
+        .set(REFIQ_CREDENTIALS.CREATED_AT, Instant.now().atOffset(ZoneOffset.UTC))
+        .execute();
   }
 }
