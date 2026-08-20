@@ -5,9 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.refiq.platform.calculation.internal.repository.CalculationResultRepository;
-import com.refiq.platform.calculation.internal.repository.entity.CalculationResultEntity;
-import com.refiq.platform.calculation.internal.repository.entity.CalculationStatus;
+import com.refiq.platform.calculation.internal.domain.CalculationState;
+import com.refiq.platform.calculation.internal.repository.DbCalculationResultRepository;
 import com.refiq.platform.support.slices.BaseWebWithAuthTest;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,9 +20,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @DisplayName("Calculation - Result Web Layer (Isolated)")
 class ResultControllerWebTest extends BaseWebWithAuthTest {
 
-
+  // Inyectamos el nuevo repositorio jOOQ
   @MockitoBean
-  private CalculationResultRepository repository;
+  private DbCalculationResultRepository repository;
 
   @Test
   @WithMockUser
@@ -31,12 +30,11 @@ class ResultControllerWebTest extends BaseWebWithAuthTest {
   void shouldReturn202WhenPending() throws Exception {
     // GIVEN
     UUID fileId = UUID.randomUUID();
-    CalculationResultEntity entity = CalculationResultEntity.builder()
-        .id(fileId)
-        .status(CalculationStatus.PENDING)
-        .build();
 
-    when(repository.findById(fileId)).thenReturn(Optional.of(entity));
+    // Instanciamos el record inmutable directamente
+    var pendingState = new CalculationState.Pending(fileId);
+
+    when(repository.findById(fileId)).thenReturn(Optional.of(pendingState));
 
     // WHEN & THEN
     mockMvc.perform(get("/api/v1/results/{fileId}", fileId))
@@ -54,13 +52,10 @@ class ResultControllerWebTest extends BaseWebWithAuthTest {
             {"test_code": "TSH", "reference_range": "0.5-4.0"}
             """;
 
-    CalculationResultEntity entity = CalculationResultEntity.builder()
-        .id(fileId)
-        .status(CalculationStatus.SUCCESS)
-        .payload(jsonPayload)
-        .build();
+    // El compilador nos obliga a pasar el payload sí o sí para construir el Success
+    var successState = new CalculationState.Success(fileId, jsonPayload);
 
-    when(repository.findById(fileId)).thenReturn(Optional.of(entity));
+    when(repository.findById(fileId)).thenReturn(Optional.of(successState));
 
     // WHEN & THEN
     mockMvc.perform(get("/api/v1/results/{fileId}", fileId))
@@ -74,13 +69,10 @@ class ResultControllerWebTest extends BaseWebWithAuthTest {
   void shouldReturn500WhenFailed() throws Exception {
     // GIVEN
     UUID fileId = UUID.randomUUID();
-    CalculationResultEntity entity = CalculationResultEntity.builder()
-        .id(fileId)
-        .status(CalculationStatus.FAILED)
-        .errorMessage("Timeout en motor R")
-        .build();
 
-    when(repository.findById(fileId)).thenReturn(Optional.of(entity));
+    var failedState = new CalculationState.Failed(fileId, "Timeout en motor R");
+
+    when(repository.findById(fileId)).thenReturn(Optional.of(failedState));
 
     // WHEN & THEN
     mockMvc.perform(get("/api/v1/results/{fileId}", fileId))

@@ -12,6 +12,7 @@ import com.refiq.platform.calculation.api.dto.CalculationResponse;
  * adhering to Hexagonal Architecture principles.
  * </p>
  */
+@FunctionalInterface
 public interface AnalysisPort {
 
   /**

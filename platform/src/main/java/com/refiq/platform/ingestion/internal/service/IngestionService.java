@@ -89,7 +89,7 @@ public class IngestionService {
 
     String targetKey = "1.Bronze/" + file.analyte().name() + "/" + file.analyte().name() + "_" + fileId + ".csv";
 
-    // 1. PUBLICAMOS EL EVENTO (El listener en Cálculo creará la entidad PENDING)
+
     eventPublisher.publishEvent(new FileAcceptedEvent(fileId, file.analyte().name()));
 
     IngestionLogEvent.UPLOAD_INITIATED.log(log, file.filename(), file.analyte().name(), file.size());

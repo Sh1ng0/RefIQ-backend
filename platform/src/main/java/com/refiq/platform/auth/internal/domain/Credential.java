@@ -1,51 +1,86 @@
 package com.refiq.platform.auth.internal.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
+
+
+
+
+
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
 
+/**
+ * Representación central e inmutable de las credenciales de acceso de un usuario en RefIQ.
+ * <p>
+ * Diseñado bajo principios de Data-Oriented Programming: sin estado mutable,
+ * sin dependencias de frameworks de persistencia y con transiciones de estado semánticas explícitas.
+ * </p>
+ */
+public record Credential(
+    UUID id,
+    String email,
+    String passwordHash,
+    Instant createdAt
+) {
 
+  /**
+   * Constructor canónico compacto.
+   * Garantiza la integridad absoluta del dato en el momento de la instanciación,
+   * ya venga de la base de datos o de un nuevo registro.
+   */
+  public Credential {
+    Objects.requireNonNull(id, "El ID de la credencial no puede ser nulo");
+    Objects.requireNonNull(email, "El email no puede ser nulo");
+    Objects.requireNonNull(passwordHash, "El hash de la contraseña no puede ser nulo");
+    Objects.requireNonNull(createdAt, "El timestamp de creación no puede ser nulo");
+  }
 
-// TODO refactorizar esta entidad para que sea DOP ready
-@Entity
-@Table(name = "refiq_credentials")
-@Getter
-@Setter
-@ToString(exclude = "passwordHash")
-// Security reasons, we don't want to print a Hash in a log by accident
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class Credential {
+  /**
+   * Método de factoría estático para la creación de nuevas credenciales.
+   * <p>
+   * Este método absorbe la responsabilidad que antes delegábamos ciegamente en la
+   * base de datos (@GeneratedValue) y en Hibernate (@PrePersist). Ahora el dominio
+   * es dueño de su propia identidad y tiempo.
+   * </p>
+   */
+  public static Credential createNew(String email, String encodedPassword) {
+    return new Credential(
+        UUID.randomUUID(),
+        email.toLowerCase().trim(), // Normalización en la frontera del dominio
+        encodedPassword,
+        Instant.now()
+    );
+  }
 
-  // this gets sent to user
-  @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  private UUID id;
+  /**
+   * Transición semántica de estado.
+   * Expresa una intención clara de negocio en lugar de un simple "wither" mecánico.
+   * Devuelve una nueva fotografía inmutable del estado.
+   */
+  public Credential updatePassword(String newEncodedPassword) {
+    if (newEncodedPassword == null || newEncodedPassword.isBlank()) {
+      throw new IllegalArgumentException("El nuevo hash de contraseña es inválido");
+    }
 
-  @Column(unique = true, nullable = false, updatable = false)
-  private String email;
+    return new Credential(
+        this.id,
+        this.email,
+        newEncodedPassword,
+        this.createdAt
+    );
+  }
 
-  @Column(nullable = false)
-  private String passwordHash;
-
-  @Column(name = "created_at", nullable = false, updatable = false)
-  private Instant createdAt;
-
-  @PrePersist
-  void onCreate() {
-    this.createdAt = Instant.now();
+  /**
+   * Sobrescribimos el toString estándar de los records.
+   * Mantenemos la restricción de seguridad de tu diseño original para garantizar
+   * que el hash jamás se imprima accidentalmente en los logs de auditoría.
+   */
+  @Override
+  public String toString() {
+    return "Credential[" +
+        "id=" + id + ", " +
+        "email='" + email + '\'' + ", " +
+        "createdAt=" + createdAt +
+        ']';
   }
 }

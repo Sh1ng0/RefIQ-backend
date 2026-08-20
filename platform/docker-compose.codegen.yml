@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  codegen-db:
+    image: postgres:15-alpine
+    container_name: refiq-codegen-db
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=refiq_build_db
+      - POSTGRES_USER=jooq_user
+      - POSTGRES_PASSWORD=jooq_pass
