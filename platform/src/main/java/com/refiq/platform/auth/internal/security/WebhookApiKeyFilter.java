@@ -12,6 +12,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * Security filter responsible for intercepting and validating incoming webhooks (e.g., from MinIO).
+ * <p>
+ * This filter enforces a static API key check for all requests matching the webhook path prefix,
+ * rejecting unauthorized requests before they reach the controller layer. It is designed to secure
+ * internal asynchronous communications decoupled from the main JWT user authentication flow.
+ * </p>
+ */
 @Component
 public class WebhookApiKeyFilter extends OncePerRequestFilter {
 
@@ -42,7 +50,7 @@ public class WebhookApiKeyFilter extends OncePerRequestFilter {
       return;
     }
 
-    // Todo correcto, MinIO es quien dice ser
+
     filterChain.doFilter(request, response);
   }
 }

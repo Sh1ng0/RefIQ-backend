@@ -6,43 +6,40 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-
 /**
- * Data Transfer Object (DTO) representing a new user registration request.
+ * Represents a new user registration request.
  * <p>
  * Incorporates necessary validation constraints to ensure the integrity and security
  * of user credentials before processing by the service layer.
  * </p>
  *
+ * @param name     The name of the hospital or laboratory.
  * @param email    The user's email address. Must adhere to a valid email format.
  * @param password The user's chosen password. Must comply with the strict security policy:
- * minimum of 8 characters, containing at least one uppercase letter,
- * one lowercase letter, one digit, and one special character (@#$%^&+=!).
+ *                 minimum of 8 characters, containing at least one uppercase letter,
+ *                 one lowercase letter, one digit, and one special character (@#$%^&+=!).
  */
-@Schema(description = "Payload para el registro de un nuevo usuario/hospital")
+@Schema(description = "Payload for registering a new user/hospital")
 public record RegisterUserRequest(
 
-    @Schema(description = "Nombre del hospital o laboratorio", example = "Hospital Clinic")
-    @NotBlank(message = "El nombre del hospital es obligatorio")
-    @Size(max = 100, message = "El nombre del hospital no puede exceder los 100 caracteres")
+    @Schema(description = "Name of the hospital or laboratory", example = "Hospital Clinic")
+    @NotBlank(message = "Hospital name is required")
+    @Size(max = 100, message = "Hospital name cannot exceed 100 characters")
     String name,
 
-
-    @Schema(description = "Correo electrónico del usuario", example = "usuario@refiq.com")
-    @NotBlank(message = "El email es obligatorio")
-    @Email(message = "El formato del email no es válido")
+    @Schema(description = "User's email address", example = "user@refiq.com")
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
     String email,
 
-
     @Schema(
-        description = "Contraseña robusta del usuario",
+        description = "Robust user password",
         example = "P@ssw0rd123!",
         pattern = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$"
     )
     @NotBlank
     @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$",
-        message = "La contraseña debe ser robusta (min 8 caracteres, mayúscula, número y símbolo)")
+        message = "Password must be robust (min 8 characters, uppercase, number, and symbol)")
     String password
 ) {
-
 }

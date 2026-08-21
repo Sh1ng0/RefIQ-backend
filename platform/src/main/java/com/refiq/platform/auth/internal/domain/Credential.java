@@ -1,19 +1,14 @@
 package com.refiq.platform.auth.internal.domain;
 
-
-
-
-
-
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Representación central e inmutable de las credenciales de acceso de un usuario en RefIQ.
+ * Core immutable representation of a user's access credentials in RefIQ.
  * <p>
- * Diseñado bajo principios de Data-Oriented Programming: sin estado mutable,
- * sin dependencias de frameworks de persistencia y con transiciones de estado semánticas explícitas.
+ * Designed under Data-Oriented Programming principles: stateless, devoid of persistence
+ * framework dependencies, and featuring explicit semantic state transitions.
  * </p>
  */
 public record Credential(
@@ -24,42 +19,44 @@ public record Credential(
 ) {
 
   /**
-   * Constructor canónico compacto.
-   * Garantiza la integridad absoluta del dato en el momento de la instanciación,
-   * ya venga de la base de datos o de un nuevo registro.
+   * Canonical compact constructor.
+   * <p>
+   * Guarantees absolute data integrity at the moment of instantiation, regardless of whether
+   * the data originates from the database or a new registration.
+   * </p>
    */
   public Credential {
-    Objects.requireNonNull(id, "El ID de la credencial no puede ser nulo");
-    Objects.requireNonNull(email, "El email no puede ser nulo");
-    Objects.requireNonNull(passwordHash, "El hash de la contraseña no puede ser nulo");
-    Objects.requireNonNull(createdAt, "El timestamp de creación no puede ser nulo");
+    Objects.requireNonNull(id, "Credential ID cannot be null");
+    Objects.requireNonNull(email, "Email cannot be null");
+    Objects.requireNonNull(passwordHash, "Password hash cannot be null");
+    Objects.requireNonNull(createdAt, "Creation timestamp cannot be null");
   }
 
   /**
-   * Método de factoría estático para la creación de nuevas credenciales.
+   * Static factory method for creating new credentials.
    * <p>
-   * Este método absorbe la responsabilidad que antes delegábamos ciegamente en la
-   * base de datos (@GeneratedValue) y en Hibernate (@PrePersist). Ahora el dominio
-   * es dueño de su propia identidad y tiempo.
+   * Generates identity and timestamps within the domain boundary prior to persistence.
    * </p>
    */
   public static Credential createNew(String email, String encodedPassword) {
     return new Credential(
         UUID.randomUUID(),
-        email.toLowerCase().trim(), // Normalización en la frontera del dominio
+        email.toLowerCase().trim(),
         encodedPassword,
         Instant.now()
     );
   }
 
   /**
-   * Transición semántica de estado.
-   * Expresa una intención clara de negocio en lugar de un simple "wither" mecánico.
-   * Devuelve una nueva fotografía inmutable del estado.
+   * Semantic state transition.
+   * <p>
+   * Expresses a clear business intent and returns a new immutable snapshot of the state
+   * with the updated password.
+   * </p>
    */
   public Credential updatePassword(String newEncodedPassword) {
     if (newEncodedPassword == null || newEncodedPassword.isBlank()) {
-      throw new IllegalArgumentException("El nuevo hash de contraseña es inválido");
+      throw new IllegalArgumentException("The new password hash is invalid");
     }
 
     return new Credential(
@@ -71,9 +68,10 @@ public record Credential(
   }
 
   /**
-   * Sobrescribimos el toString estándar de los records.
-   * Mantenemos la restricción de seguridad de tu diseño original para garantizar
-   * que el hash jamás se imprima accidentalmente en los logs de auditoría.
+   * Overrides the standard record string representation.
+   * <p>
+   * Redacts the password hash to ensure it is never accidentally leaked into audit logs.
+   * </p>
    */
   @Override
   public String toString() {

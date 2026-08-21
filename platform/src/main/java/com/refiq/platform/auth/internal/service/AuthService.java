@@ -41,7 +41,6 @@ public class AuthService {
 
   private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-  // Inyectamos el repositorio Data-Oriented
   private final DbCredentialRepository credentialRepository;
   private final PasswordEncoder passwordEncoder;
   private final JwtProvider jwtProvider;
@@ -63,16 +62,15 @@ public class AuthService {
       return new RegistrationResult.EmailAlreadyExists(request.email());
     }
 
-    // Instanciación DOP: El dominio asume el control de su identidad
+
     var newCredential = Credential.createNew(
         request.email(),
         passwordEncoder.encode(request.password())
     );
 
-    // Inserción explícita
     credentialRepository.insert(newCredential);
 
-    // EVENT STUFF: Usamos los accesores nativos del record (id(), email())
+    // EVENT STUFF
     eventPublisher.publishEvent(new UserRegisteredEvent(
         newCredential.id(),
         request.name(),
@@ -104,7 +102,7 @@ public class AuthService {
 
     var credential = credentialOpt.get();
 
-    // Accedemos al hash con el getter canónico del record: passwordHash()
+
     if (!passwordEncoder.matches(request.password(), credential.passwordHash())) {
       AuthLogEvent.LOGIN_FAILED_INVALID_CREDENTIALS.log(log, request.email());
       return new LoginResult.InvalidCredentials();

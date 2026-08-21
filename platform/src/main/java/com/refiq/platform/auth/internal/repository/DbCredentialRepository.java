@@ -7,14 +7,14 @@ import org.springframework.stereotype.Repository;
 import java.time.ZoneOffset;
 import java.util.Optional;
 
-
 import static com.refiq.platform.shared.db.generated.Tables.REFIQ_CREDENTIALS;
 
-
 /**
- * Implementación Data-Oriented del repositorio de credenciales.
- * Utiliza jOOQ para garantizar consultas tipadas y transiciones de estado explícitas,
- * devolviendo y recibiendo únicamente records inmutables del dominio.
+ * Data-oriented implementation of the credential repository.
+ * <p>
+ * Utilizes jOOQ to ensure type-safe queries and explicit state transitions,
+ * exclusively handling and returning immutable domain records.
+ * </p>
  */
 @Repository
 public class DbCredentialRepository {
@@ -26,8 +26,7 @@ public class DbCredentialRepository {
   }
 
   /**
-   * Verifica la existencia de un email mediante una consulta EXISTS optimizada.
-   * Reemplaza la antigua magia de Spring Data JPA con un SQL predecible.
+   * Verifies the existence of an email address using an optimized EXISTS query.
    */
   public boolean existsByEmail(String email) {
     return dsl.fetchExists(
@@ -38,9 +37,11 @@ public class DbCredentialRepository {
   }
 
   /**
-   * Recupera una credencial pura desde la base de datos.
-   * Seleccionamos estrictamente las columnas necesarias y delegamos en jOOQ
-   * el mapeo directo al constructor canónico del record Credential.
+   * Retrieves a pure credential record from the database.
+   * <p>
+   * Selects strictly necessary columns and delegates mapping to the canonical constructor
+   * of the domain record.
+   * </p>
    */
   public Optional<Credential> findByEmail(String email) {
     return dsl.select(
@@ -55,24 +56,26 @@ public class DbCredentialRepository {
   }
 
   /**
-   * Inserta un nuevo hecho (credencial) en el sistema.
-   * Al no existir @PrePersist ni @GeneratedValue, el record entrante
-   * ya es dueño de su ID y su Timestamp.
+   * Inserts a new credential fact into the system.
+   * <p>
+   * Assumes the incoming record is already populated with its identifier and creation timestamp,
+   * explicitly aligning the Java Instant with the database timestamp timezone.
+   * </p>
    */
   public void insert(Credential credential) {
     dsl.insertInto(REFIQ_CREDENTIALS)
         .set(REFIQ_CREDENTIALS.ID, credential.id())
         .set(REFIQ_CREDENTIALS.EMAIL, credential.email())
         .set(REFIQ_CREDENTIALS.PASSWORD_HASH, credential.passwordHash())
-        // Alineamos explícitamente el Instant de Java con el TIMESTAMP WITH TIME ZONE de Postgres
         .set(REFIQ_CREDENTIALS.CREATED_AT, credential.createdAt().atOffset(ZoneOffset.UTC))
         .execute();
   }
 
   /**
-   * Transición de estado quirúrgica.
-   * A diferencia del save() de JPA, este método comunica explícitamente
-   * la intención de alterar únicamente el hash de la contraseña de una credencial existente.
+   * Executes a precise state transition for an existing credential.
+   * <p>
+   * Explicitly alters only the password hash of the target credential identified by its ID.
+   * </p>
    */
   public void updatePassword(Credential credential) {
     dsl.update(REFIQ_CREDENTIALS)

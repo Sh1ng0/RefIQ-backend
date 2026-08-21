@@ -21,52 +21,52 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 @RequestMapping("/api")
-@Tag(name = "Authentication Module", description = "Endpoints para registro, login y gestión de sesión")
+@Tag(name = "Authentication Module", description = "Endpoints for registration, login, and session management")
 public interface AuthApi {
 
   @Operation(
-      summary = "Registrar un nuevo usuario",
-      description = "Crea una nueva cuenta de usuario validando la robustez de la contraseña, la disponibilidad del email y limitando intentos abusivos por IP."
+      summary = "Registers a new user",
+      description = "Creates a new user account by validating password robustness, email availability, and limiting abusive attempts per IP."
   )
   @ApiResponses(value = {
       @ApiResponse(
           responseCode = "200",
-          description = "Usuario registrado con éxito",
+          description = "User successfully registered",
           content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = RegistrationWebResponse.Success.class))
       ),
       @ApiResponse(
           responseCode = "400",
-          description = "Error de validación en los datos de entrada",
+          description = "Input data validation error",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = RegistrationWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "ValidationError",
-                  value = "{\n  \"error\": {\n    \"error\": \"Error de validación\",\n    \"details\": {\n      \"password\": \"La contraseña debe ser robusta (min 8 caracteres, mayúscula, número y símbolo)\"\n    }\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Validation error\",\n    \"details\": {\n      \"password\": \"Password must be robust (min 8 characters, uppercase, number, and symbol)\"\n    }\n  }\n}"
               )
           )
       ),
       @ApiResponse(
           responseCode = "409",
-          description = "Conflicto: El email ya está registrado",
+          description = "Conflict: Email is already registered",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = RegistrationWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "EmailConflict",
-                  value = "{\n  \"error\": {\n    \"error\": \"El email usuario@refiq.com ya está registrado.\",\n    \"details\": null\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"The email user@refiq.com is already registered.\",\n    \"details\": null\n  }\n}"
               )
           )
       ),
       @ApiResponse(
           responseCode = "429",
-          description = "Demasiados intentos de registro desde la misma IP (Rate limiting)",
+          description = "Too many registration attempts from the same IP (Rate limiting)",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = RegistrationWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "TooManyRequests",
-                  value = "{\n  \"error\": {\n    \"error\": \"Demasiados intentos de registro desde tu red. Por favor, espera una hora.\",\n    \"details\": null\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Too many registration attempts from this network. Please try again in an hour.\",\n    \"details\": null\n  }\n}"
               )
           )
       )
@@ -77,20 +77,19 @@ public interface AuthApi {
       @Parameter(hidden = true) HttpServletRequest httpRequest
   );
 
-
   @Operation(
-      summary = "Autenticar usuario",
-      description = "Valida las credenciales del usuario y devuelve un token JWT para la sesión."
+      summary = "Authenticates a user",
+      description = "Validates user credentials and returns a JWT for the session."
   )
   @ApiResponses(value = {
       @ApiResponse(
           responseCode = "200",
-          description = "Autenticación exitosa",
+          description = "Successful authentication",
           content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = LoginWebResponse.Success.class))
       ),
       @ApiResponse(
           responseCode = "400",
-          description = "Error de validación en los datos de entrada",
+          description = "Input data validation error",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = LoginWebResponse.Failure.class)
@@ -98,25 +97,25 @@ public interface AuthApi {
       ),
       @ApiResponse(
           responseCode = "401",
-          description = "Credenciales inválidas",
+          description = "Invalid credentials",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = LoginWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "InvalidCredentials",
-                  value = "{\n  \"error\": {\n    \"error\": \"Credenciales inválidas. Comprueba tu email y contraseña.\",\n    \"details\": null\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Invalid credentials. Please check your email and password.\",\n    \"details\": null\n  }\n}"
               )
           )
       ),
       @ApiResponse(
           responseCode = "429",
-          description = "Demasiados intentos de login (Rate limiting)",
+          description = "Too many login attempts (Rate limiting)",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = LoginWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "TooManyRequests",
-                  value = "{\n  \"error\": {\n    \"error\": \"Has superado el número máximo de intentos permitidos.\",\n    \"details\": null\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"You have exceeded the maximum allowed login attempts.\",\n    \"details\": null\n  }\n}"
               )
           )
       )

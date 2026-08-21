@@ -1,6 +1,5 @@
 package com.refiq.platform.auth.api.web;
 
-
 import com.refiq.platform.auth.api.dto.LoginRequest;
 import com.refiq.platform.auth.api.dto.LoginResult;
 import com.refiq.platform.auth.api.dto.RegisterUserRequest;
@@ -8,35 +7,27 @@ import com.refiq.platform.auth.api.dto.RegistrationResult;
 import com.refiq.platform.auth.api.web.response.LoginWebResponse;
 import com.refiq.platform.auth.api.web.response.RegistrationWebResponse;
 import com.refiq.platform.auth.internal.service.AuthService;
-
 import com.refiq.platform.shared.web.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
-
-
-
 /**
- * REST controller responsible for user authentication and registration management.
+ * Manages user authentication and registration HTTP requests.
  * <p>
  * Serves as the public entry point for account creation and session initialization
- * within the RefIQ platform. Relies on the {@link AuthService} for business logic execution.
+ * within the platform. Relies on the {@link AuthService} for business logic execution.
  * </p>
  */
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-
-public class AuthController implements AuthApi{
+public class AuthController implements AuthApi {
 
   private final AuthService authService;
 
@@ -44,21 +35,18 @@ public class AuthController implements AuthApi{
    * Registers a new user in the platform.
    * <p>
    * Processes the validated JSON request, delegates to the service layer, and maps the
-   * resulting sealed business state to the appropriate HTTP response using pattern matching:
-   * <ul>
-   * <li><b>200 OK:</b> User successfully created.</li>
-   * <li><b>409 Conflict:</b> The provided email is already in use.</li>
-   * <li><b>400 Bad Request:</b> Invalid input data (handled globally by the validation framework).</li>
-   * </ul>
+   * resulting sealed business state to the appropriate HTTP response using pattern matching.
    * </p>
    *
-   * @param request The DTO containing the user's email and password (enforces regex validation).
+   * @param request The DTO containing the user's email and password.
+   * @param httpRequest The underlying HTTP request, used to extract the client IP.
    * @return A {@link ResponseEntity} containing the operation result or a conflict error message.
    */
   // With Java 21 Jackson converts naturally any incoming JSON into a record leveraging the canonical constructor
   @PostMapping("/register")
-  public ResponseEntity<RegistrationWebResponse> register(@RequestBody @Valid RegisterUserRequest request, HttpServletRequest httpRequest) {
-
+  public ResponseEntity<RegistrationWebResponse> register(
+      @RequestBody @Valid RegisterUserRequest request,
+      HttpServletRequest httpRequest) {
 
     String ipAddress = httpRequest.getHeader("X-Forwarded-For");
     if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
@@ -67,19 +55,16 @@ public class AuthController implements AuthApi{
       ipAddress = ipAddress.split(",")[0].trim();
     }
 
-
     RegistrationResult result = authService.register(request, ipAddress);
 
-
-
     return switch (result) {
-
-      case RegistrationResult.Success s -> ResponseEntity.ok(new RegistrationWebResponse.Success(s.response()));
+      case RegistrationResult.Success s ->
+          ResponseEntity.ok(new RegistrationWebResponse.Success(s.response()));
 
       case RegistrationResult.EmailAlreadyExists e ->
           ResponseEntity.status(HttpStatus.CONFLICT)
               .body(new RegistrationWebResponse.Failure(
-                  new ApiError("El email " + e.email() + " ya está registrado.")
+                  new ApiError("The email " + e.email() + " is already registered.")
               ));
 
       case RegistrationResult.TooManyRequests tmr ->
@@ -98,8 +83,7 @@ public class AuthController implements AuthApi{
    * </p>
    *
    * @param request The DTO containing the user's email and password.
-   * @return A {@link ResponseEntity} containing the JWT (200 OK), or the corresponding error
-   * (401 Unauthorized or 429 Too Many Requests).
+   * @return A {@link ResponseEntity} containing the JWT (200 OK), or the corresponding error.
    */
   @PostMapping("/login")
   public ResponseEntity<LoginWebResponse> login(@RequestBody @Valid LoginRequest request) {
@@ -113,24 +97,22 @@ public class AuthController implements AuthApi{
       case LoginResult.InvalidCredentials e ->
           ResponseEntity.status(HttpStatus.UNAUTHORIZED)
               .body(new LoginWebResponse.Failure(
-                  new ApiError("Credenciales inválidas. Comprueba tu email y contraseña.")
+                  new ApiError("Invalid credentials. Please check your email and password.")
               ));
 
       case LoginResult.TooManyRequests tmr ->
           ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
               .body(new LoginWebResponse.Failure(
-                  new ApiError("Has superado el número máximo de intentos permitidos.")
+                  new ApiError("You have exceeded the maximum allowed login attempts.")
               ));
     };
   }
-
 
   /**
    * Logs out the authenticated user.
    * <p>
    * Due to the stateless architecture, this endpoint primarily serves to record an audit
-   * log of the voluntary logout event. The actual session invalidation must be handled
-   * by the client (e.g., by removing the token from local storage).
+   * log of the voluntary logout event.
    * </p>
    *
    * @param authentication The current Spring Security authentication token containing the user's UUID.
@@ -138,14 +120,10 @@ public class AuthController implements AuthApi{
    */
   @PostMapping("/logout")
   public ResponseEntity<Void> logout(Authentication authentication) {
-    // DEBT
-    // Mirar como gestionar esto para auditoría del logout
+    // DEBT: Look into how to manage this for logout auditing in the future.
     if (authentication != null && authentication.getPrincipal() instanceof UUID userId) {
       authService.logout(userId);
     }
     return ResponseEntity.ok().build();
   }
-
-  // DEBT
-  // Look into how to manage this for logout auditing in the future.
 }

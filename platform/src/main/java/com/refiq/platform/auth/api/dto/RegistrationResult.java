@@ -1,10 +1,9 @@
 package com.refiq.platform.auth.api.dto;
 
-
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * A sealed interface representing the exhaustive set of possible outcomes for a user registration operation.
+ * Represents the exhaustive set of possible outcomes for a user registration operation.
  * <p>
  * By utilizing a sealed hierarchy, this construct enables safe and exhaustive pattern matching
  * at the controller level. This Data-Oriented Programming (DOP) approach eliminates the need
@@ -16,7 +15,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
     RegistrationResult.Success.class,
     RegistrationResult.EmailAlreadyExists.class,
     RegistrationResult.TooManyRequests.class
-
 })
 public sealed interface RegistrationResult {
 
@@ -26,7 +24,6 @@ public sealed interface RegistrationResult {
    * @param response The confirmation data and details intended for the client.
    */
   record Success(RegistrationResponse response) implements RegistrationResult {
-
   }
 
   /**
@@ -35,12 +32,12 @@ public sealed interface RegistrationResult {
    * @param email The conflicting email address that triggered the failure.
    */
   record EmailAlreadyExists(String email) implements RegistrationResult {
-
   }
 
-
   /**
-   * Representa un fallo por superar el límite de peticiones (Rate Limiting).
+   * Represents a failure due to exceeding the request rate limit.
+   *
+   * @param message The explanatory message about the rate limiting event.
    */
   record TooManyRequests(String message) implements RegistrationResult {
   }

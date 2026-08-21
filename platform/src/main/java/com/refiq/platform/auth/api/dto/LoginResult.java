@@ -1,8 +1,7 @@
 package com.refiq.platform.auth.api.dto;
 
-
 /**
- * A sealed interface representing the exhaustive set of possible outcomes for a login operation.
+ * Represents the exhaustive set of possible outcomes for a login operation.
  * <p>
  * By utilizing sealed interfaces, this construct enables exhaustive pattern matching at the
  * controller level. This ensures all security states are explicitly handled without relying on
@@ -17,7 +16,6 @@ public sealed interface LoginResult {
    * @param response The DTO containing the issued JWT and token details.
    */
   record Success(LoginResponse response) implements LoginResult {
-
   }
 
   /**
@@ -29,7 +27,6 @@ public sealed interface LoginResult {
    * </p>
    */
   record InvalidCredentials() implements LoginResult {
-
   }
 
   /**
@@ -38,6 +35,5 @@ public sealed interface LoginResult {
    * @param message A message indicating that the maximum number of login attempts has been exceeded.
    */
   record TooManyRequests(String message) implements LoginResult {
-
   }
 }

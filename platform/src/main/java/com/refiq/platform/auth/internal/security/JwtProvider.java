@@ -17,29 +17,18 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import java.util.UUID;
 
+
 /**
- * Internal cryptographic component responsible for the issuance and validation of JSON Web Tokens (JWT).
- * <p>
- * This class acts as a secure facade over the underlying JJWT library, isolating the rest
- * of the authentication module from the complexities of cryptographic signing, parsing, and
- * exception handling.
- * </p>
+ * Cryptographic component responsible for the issuance and validation of JSON Web Tokens (JWT).
  * <p>
  * Key behaviors include:
  * <ul>
- * <li><b>Token Generation:</b> Cryptographically signs the user's UUID into the {@code sub} (Subject)
- * claim using the HMAC-SHA algorithm, applying the configured time-to-live (TTL).</li>
- * <li><b>Stateless Validation:</b> Parses and verifies the token's digital signature and expiration
- * date in memory, without requiring a database lookup.</li>
- * <li><b>Exception Shielding:</b> Catches all library-specific cryptographic or parsing exceptions
- * (e.g., {@code ExpiredJwtException}, {@code SignatureException}) and safely returns an {@link Optional#empty()},
- * adhering to the project's Data-Oriented Programming (DOP) approach by avoiding control flow via exceptions.</li>
+ * <li><b>Token Generation:</b> Signs the user's UUID into the {@code sub} (Subject) claim using
+ * the HMAC-SHA algorithm with the configured time-to-live.</li>
+ * <li><b>Validation:</b> Parses and verifies the token's digital signature and expiration date.</li>
+ * <li><b>Exception Shielding:</b> Catches cryptographic and parsing exceptions from the underlying
+ * JJWT library, returning an {@link Optional#empty()} and logging the failure.</li>
  * </ul>
- * </p>
- * <p>
- * <b>Profile Configuration:</b> Active by default ({@code !test}). Excluded in standard
- * testing environments to allow seamless integration testing of other modules without
- * requiring actual cryptographic operations, unless the {@code security} profile is explicitly activated.
  * </p>
  */
 @Component
@@ -60,15 +49,14 @@ public class JwtProvider {
     this.expirationMs = expirationMs;
   }
 
-  // Aquí engordamos el Token
-  public String generateToken(UUID userId ) { // String email
+
+  public String generateToken(UUID userId ) {
 
     Date now = new Date();
     Date expiryDate = new Date(now.getTime() + expirationMs);
 
     return Jwts.builder()
         .subject(userId.toString())
-        //.claim("email", email)
         .issuedAt(now)
         .expiration(expiryDate)
         .signWith(key)

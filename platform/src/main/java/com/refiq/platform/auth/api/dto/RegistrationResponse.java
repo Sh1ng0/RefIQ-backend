@@ -1,23 +1,21 @@
 package com.refiq.platform.auth.api.dto;
 
-
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * Data Transfer Object (DTO) representing a successful user registration response.
+ * Represents a successful user registration response.
  *
  * @param message A human-readable message for the end-user indicating the result
- * (e.g., next steps or verification instructions).
+ *                (e.g., next steps or verification instructions).
  * @param userId  The universally unique identifier (UUID) assigned to the newly created user in the system.
  */
-@Schema(description = "Respuesta de registro exitoso")
+@Schema(description = "Successful registration response")
 public record RegistrationResponse(
 
-    @Schema(description = "Mensaje informativo sobre el resultado", example = "Usuario registrado correctamente.")
+    @Schema(description = "Informative message about the result", example = "User successfully registered.")
     String message,
 
-    @Schema(description = "UUID asignado al usuario", example = "123e4567-e89b-12d3-a456-426614174000")
+    @Schema(description = "UUID assigned to the user", example = "123e4567-e89b-12d3-a456-426614174000")
     String userId
 ) {
-
 }

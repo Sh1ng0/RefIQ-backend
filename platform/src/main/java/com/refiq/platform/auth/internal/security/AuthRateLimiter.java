@@ -12,10 +12,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 
 
-// TODO
-// Mirar qué hay que delegar de esto con respecto a NGINX
-// Rate limiting basado en IP preparado para entorno con proxy (X-Forwarded-For). Pendiente configuración en Nginx.
-// DEUDA TECNICA RATE LIMITING POR EMAIL para evtar dictionary attacks
+// TODO: Investigate delegating IP rate limiting to NGINX.
+// Currently prepared for proxy environments (X-Forwarded-For), pending NGINX configuration.
+// TECHNICAL DEBT: Implement strict rate limiting by email to prevent dictionary attacks.
+/**
+ * Unified in-memory rate limiter to mitigate brute-force and spam attacks.
+ * Protects the login flow (by email) and the registration flow (by IP).
+ */
 /**
  * Unified in-memory rate limiter to mitigate brute-force and spam attacks.
  * Protects the login flow (by email) and the registration flow (by IP).
