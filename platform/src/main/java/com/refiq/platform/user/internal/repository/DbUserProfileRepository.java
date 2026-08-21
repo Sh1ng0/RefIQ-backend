@@ -11,8 +11,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Implementación Data-Oriented del repositorio de perfiles de usuario.
- * Sustituye a JpaRepository para recuperar el control absoluto sobre las consultas SQL.
+ * Data-oriented implementation of the user profile repository.
+ * <p>
+ * Utilizes jOOQ to ensure type-safe SQL queries and explicit state management,
+ * returning only pure domain records.
+ * </p>
  */
 @Repository
 public class DbUserProfileRepository {
@@ -24,12 +27,12 @@ public class DbUserProfileRepository {
   }
 
   /**
-   * Inserta un nuevo perfil en el sistema.
-   * El record UserProfile ya viene con su estado completamente inicializado (id y createdAt)
-   * desde la capa de servicio.
+   * Inserts a new user profile into the system.
+   * <p>
+   * Assumes the profile record is fully initialized with its identifier and creation timestamp,
+   * explicitly aligning the Java {@link java.time.Instant} with the database {@code TIMESTAMP WITH TIME ZONE}.
+   * </p>
    */
-
-  // COmentar en el javadoc la alineacion del Instant de Java con TIMESTAMP WITH TIME ZONE
   public void insert(UserProfile profile) {
     dsl.insertInto(REFIQ_USER_PROFILES)
         .set(REFIQ_USER_PROFILES.ID, profile.id())
@@ -40,8 +43,10 @@ public class DbUserProfileRepository {
   }
 
   /**
-   * Recupera un perfil de usuario por su identificador único.
-   * jOOQ mapea las columnas seleccionadas directamente al constructor del Record.
+   * Retrieves a user profile by its unique identifier.
+   * <p>
+   * Delegates to jOOQ for mapping selected columns directly into the domain record's constructor.
+   * </p>
    */
   public Optional<UserProfile> findById(UUID id) {
     return dsl.select(
@@ -55,11 +60,13 @@ public class DbUserProfileRepository {
         .fetchOptionalInto(UserProfile.class);
   }
 
-
   // HELPER METHODS
 
   /**
-   * Limpia la tabla. Exclusivo para tearDown de tests de integración.
+   * Clears the underlying table.
+   * <p>
+   * Exclusively intended for integration test teardown procedures.
+   * </p>
    */
   public void deleteAll() {
     dsl.deleteFrom(com.refiq.platform.shared.db.generated.Tables.REFIQ_USER_PROFILES).execute();

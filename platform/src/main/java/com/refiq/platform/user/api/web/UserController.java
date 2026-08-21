@@ -11,21 +11,25 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Manages user profile HTTP requests.
+ */
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-public class UserController implements UserApi{
+public class UserController implements UserApi {
 
   private final UserService userService;
 
   /**
-   * Endpoint for the Frontend to retrieve the authenticated user's profile data.
-   * The UUID is automatically extracted from the JWT thanks to the JwtAuthenticationFilter.
+   * Retrieves the authenticated user's profile data.
+   * <p>
+   * The user's UUID is automatically extracted from the active security context.
+   * </p>
    *
    * @param userId The UUID of the user, injected by Spring Security.
-   * @return A {@link ResponseEntity} containing the profile data (200 OK) or a 404 Not Found if it doesn't exist.
+   * @return A {@link ResponseEntity} containing the profile data (200 OK) or a 404 Not Found if it does not exist.
    */
-  // TODO mirar si es necesario aplicar el patrón envelope con webResponse a este controlador
   @Override
   @GetMapping("/profile")
   public ResponseEntity<UserProfileResponse> getMyProfile(@AuthenticationPrincipal UUID userId) {

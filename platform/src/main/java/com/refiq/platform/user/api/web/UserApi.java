@@ -1,7 +1,5 @@
 package com.refiq.platform.user.api.web;
 
-
-
 import com.refiq.platform.user.api.dto.UserProfileResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -19,28 +17,28 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.UUID;
 
 @RequestMapping("/api/users")
-@Tag(name = "User Module", description = "Endpoints para la consulta y gestión del perfil del hospital/usuario")
+@Tag(name = "User Module", description = "Endpoints for retrieving and managing the user/hospital profile")
 public interface UserApi {
 
   @Operation(
-      summary = "Obtener el perfil del usuario autenticado",
-      description = "Devuelve los datos del perfil (hospital) vinculados al token JWT actual.",
-      security = { @SecurityRequirement(name = "bearerAuth") } // Opcional: si tienes configurado el botón de "Authorize" en Swagger
+      summary = "Retrieves the authenticated user's profile",
+      description = "Returns the profile (hospital) data linked to the current JWT token.",
+      security = { @SecurityRequirement(name = "bearerAuth") }
   )
   @ApiResponses(value = {
       @ApiResponse(
           responseCode = "200",
-          description = "Perfil recuperado exitosamente",
+          description = "Profile successfully retrieved",
           content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserProfileResponse.class))
       ),
       @ApiResponse(
           responseCode = "401",
-          description = "No autorizado (Falta token o es inválido)",
+          description = "Unauthorized (Missing or invalid token)",
           content = @Content(schema = @Schema(hidden = true))
       ),
       @ApiResponse(
           responseCode = "404",
-          description = "Perfil no encontrado (Inconsistencia de datos)",
+          description = "Profile not found (Data inconsistency)",
           content = @Content(schema = @Schema(hidden = true))
       )
   })
