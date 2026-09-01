@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * REST Controller handling the reception and orchestration of raw CSV ingestion files.
+ * Handles the reception and orchestration of raw CSV ingestion files.
  * <p>
  * Acting as the Primary Adapter, it transforms HTTP Multipart requests into domain-agnostic
  * objects. Its main responsibilities are:
@@ -39,27 +39,25 @@ public class IngestionController implements IngestionApi {
 
   private final IngestionService ingestionService;
 
-
   @Override
   public ResponseEntity<IngestionWebResponse> upload(MultipartFile file, String analyteStr) {
 
-    // 1. Validación de archivo (Flujo de datos)
+ 
     if (file.isEmpty()) {
       return ResponseEntity.badRequest()
-          .body(new IngestionWebResponse.Failure(new ApiError("El archivo está vacío.")));
+          .body(new IngestionWebResponse.Failure(new ApiError("The file is empty.")));
     }
 
-    // 2. Validación de Dominio (Sin excepciones, puro DOP)
+
     var analyteOpt = Analyte.fromString(analyteStr);
     if (analyteOpt.isEmpty()) {
       return ResponseEntity.badRequest()
-          .body(new IngestionWebResponse.Failure(new ApiError("Analito no soportado: " + analyteStr)));
+          .body(new IngestionWebResponse.Failure(new ApiError("Unsupported analyte: " + analyteStr)));
     }
 
-    // 3. Infraestructura (Si esto lanza IOException, es excepcional y va al GlobalExceptionHandler)
     IngestionFile domainFile = mapToSafeDomainFile(file, analyteOpt.get());
 
-    // 4. Ejecución del caso de uso
+
     IngestionResult result = ingestionService.ingest(domainFile);
 
     return mapToResponse(result);
@@ -85,7 +83,7 @@ public class IngestionController implements IngestionApi {
    * @param file    The original multipart file.
    * @param analyte The strongly typed clinical analyte validated from the client request.
    * @return A domain-safe object referencing the temporary file and its cleanup logic.
-   * @throws IOException If writing to the temporary disk location fails.
+   * @throws java.io.UncheckedIOException If writing to the temporary disk location fails.
    */
   private IngestionFile mapToSafeDomainFile(MultipartFile file, Analyte analyte) {
     try {
@@ -99,29 +97,30 @@ public class IngestionController implements IngestionApi {
             try {
               return new FileInputStream(tempPath.toFile());
             } catch (IOException e) {
-              // Ya hacías esto aquí, ¡buen instinto!
-              throw new java.io.UncheckedIOException("No se pudo abrir el archivo temporal", e);
+              throw new java.io.UncheckedIOException("Could not open temporary file", e);
             }
           },
           file.getSize(),
           file.getContentType(),
           () -> {
             try {
+              // Infrastructure detail: Kept as raw strings to avoid polluting domain or storage log enumerations
+              // with web-tier temporary file management.
               Files.deleteIfExists(tempPath);
-              log.trace("Archivo temporal eliminado: {}", tempPath);
+              log.trace("Temporary file deleted: {}", tempPath);
             } catch (IOException e) {
-              log.warn("No se pudo borrar temporal: {}", tempPath);
+              log.warn("Could not delete temporary file: {}", tempPath);
             }
           }
       );
     } catch (IOException e) {
-      // 3. Convertimos el error de disco en una RuntimeException estándar de Java
-      throw new java.io.UncheckedIOException("Error al procesar el archivo temporal en disco", e);
+
+      throw new java.io.UncheckedIOException("Error processing temporary file on disk", e);
     }
   }
 
   /**
-   * Mapea el resultado sellado del dominio (Pattern Matching) a la respuesta HTTP adecuada.
+   * Maps the sealed domain result (Pattern Matching) to the appropriate HTTP response.
    */
   private ResponseEntity<IngestionWebResponse> mapToResponse(IngestionResult result) {
     return switch (result) {
@@ -130,12 +129,12 @@ public class IngestionController implements IngestionApi {
 
       case IngestionResult.InvalidFile e -> ResponseEntity.badRequest()
           .body(new IngestionWebResponse.Failure(
-              new ApiError("Archivo inválido", Map.of("reason", e.reason()))
+              new ApiError("Invalid file", Map.of("reason", e.reason()))
           ));
 
       case IngestionResult.StorageUnavailable e -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
           .body(new IngestionWebResponse.Failure(
-              new ApiError("Servicio no disponible", Map.of("debug", e.debugInfo()))
+              new ApiError("Service unavailable", Map.of("debug", e.debugInfo()))
           ));
     };
   }

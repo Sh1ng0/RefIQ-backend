@@ -15,7 +15,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -27,13 +26,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 /**
- * Service responsible for orchestrating the asynchronous file ingestion pipeline.
+ * Orchestrates the asynchronous file ingestion pipeline.
  * <p>
  * This core service handles the receipt of clinical data files, assigns a unique Correlation ID (UUID),
  * and manages the robust, chunked upload to the Data Lake's Bronze layer via the {@link StoragePort}.
  * It operates in a completely decoupled manner, utilizing Spring Modulith events ({@link FileAcceptedEvent}
- * and {@link IngestionFailedEvent}) to communicate state changes to downstream modules (like Calculation)
- * without direct domain coupling.
+ * and {@link IngestionFailedEvent}) to communicate state changes to downstream modules without direct domain coupling.
  * </p>
  * <p>
  * To ensure high performance and low memory footprint, it leverages Java Virtual Threads and applies
@@ -48,15 +46,14 @@ public class IngestionService {
   private static final int MIN_PART_SIZE_BYTES = 5 * 1024 * 1024;
   private static final long UPLOAD_TIMEOUT_MINUTES = 60;
 
-  private final Semaphore uploadPermits = new Semaphore(4);
-
   /**
    * Semaphore used to enforce backpressure. It limits the number of concurrent chunk uploads
    * to prevent memory exhaustion and network congestion when dealing with large files.
    */
+  private final Semaphore uploadPermits = new Semaphore(4);
+
   private final StoragePort storagePort;
   private final ExecutorService ingestionExecutor;
-
   private final RestClient restClient;
   private final String dataLakeApiUrl;
   private final ApplicationEventPublisher eventPublisher;
@@ -75,23 +72,15 @@ public class IngestionService {
 
   /**
    * Initiates the ingestion process for a provided clinical data file.
-   * <p>
-   * This method performs the synchronous initial steps: generating the UUID, constructing the S3 target key,
-   * and publishing the initial domain event so tracking can begin. The heavy lifting (uploading) is immediately
-   * delegated to a background Virtual Thread, allowing this method to return an HTTP 202 Accepted equivalent rapidly.
-   * </p>
    *
    * @param file The domain object representing the uploaded file and its metadata.
    * @return An {@link IngestionResult.Success} containing the generated UUID and a PENDING status.
    */
   public IngestionResult ingest(IngestionFile file) {
     UUID fileId = UUID.randomUUID();
-
     String targetKey = "1.Bronze/" + file.analyte().name() + "/" + file.analyte().name() + "_" + fileId + ".csv";
 
-
     eventPublisher.publishEvent(new FileAcceptedEvent(fileId, file.analyte().name()));
-
     IngestionLogEvent.UPLOAD_INITIATED.log(log, file.filename(), file.analyte().name(), file.size());
 
     ingestionExecutor.submit(() -> processBronzeMultipart(file, fileId, targetKey));
@@ -103,12 +92,6 @@ public class IngestionService {
 
   /**
    * Executes the chunked multipart upload to the Bronze layer in the background.
-   * <p>
-   * Reads the incoming stream in chunks (parts), uploading them asynchronously. If the entire process
-   * is successful, it commands the storage port to assemble the parts and triggers the external Data Lake.
-   * If any network error or timeout occurs, it safely aborts the multipart transaction in S3/MinIO,
-   * cancels pending tasks, and publishes an {@link IngestionFailedEvent} to rollback tracking states.
-   * </p>
    *
    * @param file   The ingestion file containing the data stream and cleanup callbacks.
    * @param fileId The generated Correlation ID for this transaction.
@@ -151,8 +134,8 @@ public class IngestionService {
     } catch (Exception e) {
       IngestionLogEvent.PIPELINE_ERROR.log(log, fileId, e.getMessage());
 
-      // 2. PUBLICAMOS EL EVENTO DE FALLO (En lugar de ensuciarnos las manos con la BD)
-      eventPublisher.publishEvent(new IngestionFailedEvent(fileId, "Error en la subida a MinIO: " + e.getMessage()));
+      // Publish the failure event (avoiding direct DB coupling)
+      eventPublisher.publishEvent(new IngestionFailedEvent(fileId, "Error uploading to MinIO: " + e.getMessage()));
 
       if (uploadId != null) {
         storagePort.abortMultipartUpload(key, uploadId);
@@ -169,10 +152,6 @@ public class IngestionService {
 
   /**
    * Uploads a single data chunk to the storage port while enforcing concurrency limits (backpressure).
-   * <p>
-   * A permit must be acquired from the {@code uploadPermits} Semaphore before the asynchronous upload begins.
-   * Once the upload completes (successfully or exceptionally), the permit is safely released.
-   * </p>
    *
    * @param key      The destination path (S3 Key).
    * @param uploadId The active multipart transaction ID.
@@ -205,10 +184,6 @@ public class IngestionService {
 
   /**
    * Triggers the external Data Lake pipeline via a REST call.
-   * <p>
-   * This is a "fire-and-forget" mechanism. If the Data Lake API is temporarily unreachable or returns an error,
-   * the exception is caught and logged, but it does not roll back the successful S3 upload or crash the application.
-   * </p>
    */
   private void triggerDataLakePipeline() {
     try {

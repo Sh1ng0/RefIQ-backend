@@ -20,8 +20,8 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * Defines the contract for the Data Ingestion API.
  * <p>
- * This interface serves as the primary entry point for ingesting raw payloads into the system.
- * It separates the API definition and OpenAPI documentation from the underlying
+ * Serves as the primary entry point for ingesting raw payloads into the system.
+ * Separates the API definition and OpenAPI documentation from the underlying
  * controller implementation, keeping the business logic clean and focused.
  * </p>
  */
@@ -50,11 +50,11 @@ public interface IngestionApi {
               examples = {
                   @ExampleObject(
                       name = "UnsupportedAnalyteExample",
-                      value = "{\n  \"error\": {\n    \"error\": \"Analito no soportado: INVENTADO\",\n    \"details\": null\n  }\n}"
+                      value = "{\n  \"error\": {\n    \"error\": \"Unsupported analyte: FAKE\",\n    \"details\": null\n  }\n}"
                   ),
                   @ExampleObject(
                       name = "EmptyFileExample",
-                      value = "{\n  \"error\": {\n    \"error\": \"El archivo está vacío.\",\n    \"details\": null\n  }\n}"
+                      value = "{\n  \"error\": {\n    \"error\": \"The file is empty.\",\n    \"details\": null\n  }\n}"
                   )
               }
           )
@@ -67,18 +67,18 @@ public interface IngestionApi {
               schema = @Schema(implementation = IngestionWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "StorageUnavailableExample",
-                  value = "{\n  \"error\": {\n    \"error\": \"Servicio no disponible\",\n    \"details\": {\n      \"debug\": \"S3 Timeout Connection Exception\"\n    }\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Service unavailable\",\n    \"details\": {\n      \"debug\": \"S3 Timeout Connection Exception\"\n    }\n  }\n}"
               )
           )
       )
   })
   @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   ResponseEntity<IngestionWebResponse> upload(
-      @Parameter(description = "Archivo CSV raw", required = true)
+      @Parameter(description = "Raw CSV file", required = true)
       @RequestPart("file")
       MultipartFile file,
 
-      @Parameter(description = "Código del analito clínico (ej. ALP, CRE). Debe coincidir con los valores permitidos en el sistema.", required = true)
+      @Parameter(description = "Clinical analyte code (e.g., ALP, CRE). Must match supported system values.", required = true)
       @RequestParam("analyte")
       String analyteStr);
 }

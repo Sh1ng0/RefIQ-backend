@@ -1,6 +1,5 @@
 package com.refiq.platform.ingestion.internal.adapter.s3;
 
-
 import com.refiq.platform.ingestion.internal.port.StoragePort;
 import java.util.List;
 import java.util.Map;
@@ -16,19 +15,17 @@ import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
-
-
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 
 /**
  * Secondary adapter implementing file persistence using AWS S3.
  * <p>
- * This class fulfills the {@link StoragePort} contract, handling low-level interactions with the S3
+ * Fulfills the {@link StoragePort} contract, handling low-level interactions with the S3
  * SDK, resource management (stream closing), and multipart upload orchestration.
+ * Since MinIO implements the same standard as AWS S3, this adapter is fully compatible
+ * with MinIO environments without modification.
  * </p>
  */
-
-// Minio uses the same standard as AWS's S3 so this works just fine for Minio
 @Component
 @RequiredArgsConstructor
 public class S3StorageAdapter implements StoragePort {
@@ -40,12 +37,11 @@ public class S3StorageAdapter implements StoragePort {
   @Value("${refiq.storage.s3.bucket-name}")
   private String bucketName;
 
-  // --- Métodos Multipart (Streaming) ---
+  // --- Multipart Methods (Streaming) ---
 
   /**
    * {@inheritDoc}
    */
-
   @Override
   public String initMultipartUpload(String key, String contentType, Map<String, String> metadata) {
     try {
@@ -62,7 +58,7 @@ public class S3StorageAdapter implements StoragePort {
 
       return uploadId;
     } catch (Exception e) {
-      throw new RuntimeException("Error iniciando multipart upload: " + e.getMessage(), e);
+      throw new RuntimeException("Error initiating multipart upload: " + e.getMessage(), e);
     }
   }
 
@@ -83,17 +79,14 @@ public class S3StorageAdapter implements StoragePort {
           .partNumber(partNumber)
           .build();
 
-      // AWS SDK v2 usa RequestBody.fromBytes para arrays en memoria
+      // AWS SDK v2 uses RequestBody.fromBytes for in-memory arrays
       String eTag = s3Client.uploadPart(request, RequestBody.fromBytes(payload)).eTag();
 
-//      StorageLogEvent.PART_UPLOADED.log(log, partNumber, key, eTag);
       return eTag;
 
     } catch (Exception e) {
-
-      throw new RuntimeException("Error subiendo parte " + partNumber + ": " + e.getMessage(), e);
+      throw new RuntimeException("Error uploading part " + partNumber + ": " + e.getMessage(), e);
     }
-
   }
 
   /**
@@ -108,7 +101,7 @@ public class S3StorageAdapter implements StoragePort {
   public void completeMultipartUpload(String key, String uploadId,
       Map<Integer, String> completedPartsMap) {
     try {
-      // IMPORTANTE: S3 exige que la lista esté ordenada por número de parte (ascending)
+      // IMPORTANT: S3 requires the list to be sorted by part number (ascending)
       List<CompletedPart> awsParts = completedPartsMap.entrySet().stream()
           .sorted(Map.Entry.comparingByKey())
           .map(entry -> CompletedPart.builder()
@@ -132,9 +125,8 @@ public class S3StorageAdapter implements StoragePort {
       StorageLogEvent.MULTIPART_COMPLETED.log(log, key);
 
     } catch (Exception e) {
-      throw new RuntimeException("Error finalizando multipart upload: " + e.getMessage(), e);
+      throw new RuntimeException("Error completing multipart upload: " + e.getMessage(), e);
     }
-
   }
 
   /**
@@ -160,8 +152,4 @@ public class S3StorageAdapter implements StoragePort {
       StorageLogEvent.ABORT_FAILED.log(log, e.getMessage());
     }
   }
-
-
 }
-
-

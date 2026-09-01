@@ -10,7 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * </p>
  */
 
-// IMPORTANTE: Le decimos a Swagger cuáles son las implementaciones posibles
+
 @Schema(oneOf = {
     IngestionResult.Success.class,
     IngestionResult.InvalidFile.class,

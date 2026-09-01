@@ -1,7 +1,5 @@
 package com.refiq.platform.ingestion.internal.domain;
 
-
-
 import java.io.InputStream;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -9,8 +7,8 @@ import java.util.function.Supplier;
 /**
  * Domain representation of a file pending ingestion into the Data Lake.
  * <p>
- * This record decouples the core routing logic from Spring Web components (like MultipartFile).
- * It uses functional interfaces ({@link Supplier}, {@link Runnable}) to provide lazy access
+ * Decouples the core routing logic from Spring Web components (like MultipartFile).
+ * Uses functional interfaces ({@link Supplier}, {@link Runnable}) to provide lazy access
  * to the file stream and explicit resource cleanup once the transfer is complete.
  * </p>
  *
@@ -24,23 +22,23 @@ import java.util.function.Supplier;
 public record IngestionFile(
     String filename,
     Analyte analyte,
-    Supplier<InputStream> contentProvider, // De input stream a supplier para el tema del raw s3
+    Supplier<InputStream> contentProvider, // Using Supplier instead of InputStream to handle raw S3 streams
     long size,
     String contentType,
     Runnable cleanupCallback
 ) {
 
   public IngestionFile {
-    Objects.requireNonNull(contentProvider, "El proveedor de contenido es obligatorio");
+    Objects.requireNonNull(contentProvider, "Content provider is required");
 
     if (filename == null || filename.isBlank()) {
-      throw new IllegalArgumentException("El nombre del archivo no puede estar vacío");
+      throw new IllegalArgumentException("Filename cannot be empty");
     }
 
-    Objects.requireNonNull(analyte, "El analito es obligatorio y debe ser válido");
+    Objects.requireNonNull(analyte, "Analyte is required and must be valid");
 
     if (size < 0) {
-      throw new IllegalArgumentException("El tamaño del archivo no puede ser negativo");
+      throw new IllegalArgumentException("File size cannot be negative");
     }
   }
 

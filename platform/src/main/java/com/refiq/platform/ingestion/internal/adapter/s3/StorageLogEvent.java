@@ -1,25 +1,26 @@
 package com.refiq.platform.ingestion.internal.adapter.s3;
 
-
 import com.refiq.platform.shared.observability.Loggable;
 
 /**
- * Eventos de logging específicos para la capa de persistencia (S3).
- * Desacopla los detalles de infraestructura del dominio.
+ * Defines logging events specific to the persistence layer (S3).
+ * <p>
+ * Decouples infrastructure details from the core domain.
+ * </p>
  */
 enum StorageLogEvent implements Loggable {
 
-  SINGLE_UPLOAD_SUCCESS(LogLevel.DEBUG, "Subida directa a S3 completada. Bucket: {}, Key: {}"),
+  SINGLE_UPLOAD_SUCCESS(LogLevel.DEBUG, "Direct upload to S3 completed. Bucket: {}, Key: {}"),
 
-  MULTIPART_INITIATED(LogLevel.DEBUG, "Iniciada transacción S3 Multipart. UploadId: {}"),
+  MULTIPART_INITIATED(LogLevel.DEBUG, "S3 Multipart transaction initiated. UploadId: {}"),
 
-//  PART_UPLOADED(LogLevel.TRACE, "Parte #{} subida a S3. Key: {}, ETag: {}"),
+//  PART_UPLOADED(LogLevel.TRACE, "Part #{} uploaded to S3. Key: {}, ETag: {}"),
 
-  MULTIPART_COMPLETED(LogLevel.INFO, "Multipart upload completado exitosamente. Key: {}"),
+  MULTIPART_COMPLETED(LogLevel.INFO, "Multipart upload successfully completed. Key: {}"),
 
-  MULTIPART_ABORTED(LogLevel.WARN, "Multipart upload abortado (Best Effort). Key: {}, ID: {}"),
+  MULTIPART_ABORTED(LogLevel.WARN, "Multipart upload aborted (Best Effort). Key: {}, ID: {}"),
 
-  ABORT_FAILED(LogLevel.ERROR, "Fallo al intentar abortar la subida: {}");
+  ABORT_FAILED(LogLevel.ERROR, "Failed to abort the upload: {}");
 
   private final LogLevel level;
   private final String template;
