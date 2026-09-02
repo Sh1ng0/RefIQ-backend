@@ -9,6 +9,7 @@ import com.refiq.platform.calculation.internal.adapter.plumber.PlumberAdapter;
 import com.refiq.platform.calculation.internal.domain.CalculationState;
 import com.refiq.platform.calculation.internal.port.AnalysisPort;
 import com.refiq.platform.calculation.internal.repository.DbCalculationResultRepository;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,10 +21,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Service orchestrating the core calculation workflow for clinical reference intervals.
+ * Orchestrates the core calculation workflow for clinical reference intervals.
  * <p>
- * Refactorizado a DOP (Data-Oriented Programming). Utiliza Records y Pattern Matching
- * para transiciones de estado inmutables sin depender de entidades JPA.
+ * Refactored to Data-Oriented Programming (DOP). Utilizes records and pattern matching
+ * for immutable state transitions without relying on JPA entities.
  * </p>
  */
 @Service
@@ -50,9 +51,15 @@ public class CalculationService {
         request.percentileHigh()
     );
 
-    UUID fileId = extractUuidFromKey(request.s3Key());
+    var fileIdOpt = extractUuidFromKey(request.s3Key());
 
-    // El cerrojo de concurrencia ahora vive en jOOQ
+    if (fileIdOpt.isEmpty()) {
+      CalculationLogEvent.CALCULATION_INVALID_REQUEST.log(log, request.s3Key());
+      return new CalculationResult.InvalidRequest("No valid UUID found in the S3 path: " + request.s3Key());
+    }
+
+    UUID fileId = fileIdOpt.get();
+
     int claimed = repository.claimPendingCalculation(fileId);
 
     if (claimed == 0) {
@@ -76,7 +83,7 @@ public class CalculationService {
       CalculationLogEvent.PLUMBER_ERROR.log(log, e.getMessage());
 
       String debugMsg = (e.getCause() instanceof SocketTimeoutException)
-          ? "Timeout esperando respuesta del motor de análisis."
+          ? "Timeout waiting for response from the analysis engine."
           : e.getMessage();
 
       finalResult = new CalculationResult.EngineUnavailable(debugMsg);
@@ -89,7 +96,9 @@ public class CalculationService {
 
   /**
    * Updates the persistent tracking record based on the result of the calculation.
-   * Utiliza Pattern Matching para instanciar el estado exacto (Success o Failed) y lo persiste.
+   * <p>
+   * Utilizes pattern matching to instantiate the exact state (Success or Failed) and persists it.
+   * </p>
    */
   private void updateTrackingRecord(UUID fileId, CalculationResult result) {
     repository.findById(fileId).ifPresentOrElse(currentState -> {
@@ -102,11 +111,10 @@ public class CalculationService {
             CalculationLogEvent.CALCULATION_RESULT_SAVED.log(log, fileId);
             yield new CalculationState.Success(fileId, jsonPayload);
           } catch (JsonProcessingException e) {
-            yield new CalculationState.Failed(fileId, "Error serializando JSON de respuesta: " + e.getMessage());
+            yield new CalculationState.Failed(fileId, "Error serializing JSON response: " + e.getMessage());
           }
         }
         case CalculationResult.DataInconsistency error -> {
-          // Reflejando tu comentario: Aquí podríamos inyectar un log más granular en el futuro
           CalculationLogEvent.DATA_INCONSISTENCY_TRACKED.log(log, fileId, error.details());
           yield new CalculationState.Failed(fileId, error.details());
         }
@@ -127,12 +135,12 @@ public class CalculationService {
     }, () -> CalculationTrackingLogEvent.TRACKING_RECORD_NOT_FOUND.log(log, fileId));
   }
 
-  private UUID extractUuidFromKey(String s3Key) {
+  private Optional<UUID> extractUuidFromKey(String s3Key) {
     Matcher matcher = UUID_PATTERN.matcher(s3Key);
     if (matcher.find()) {
-      return UUID.fromString(matcher.group(1));
+      return Optional.of(UUID.fromString(matcher.group(1)));
     }
-    throw new IllegalArgumentException("No se encontró un UUID válido en la ruta de S3: " + s3Key);
+    return Optional.empty();
   }
 
   private CalculationResult alreadyHandled(UUID fileId) {

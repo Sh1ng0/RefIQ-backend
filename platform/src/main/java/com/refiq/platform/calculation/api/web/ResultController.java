@@ -17,20 +17,31 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
+/**
+ * Exposes the calculation state machine to external clients.
+ * <p>
+ * Allows the frontend to poll for the asynchronous calculation status
+ * using the tracking ID provided during the initial ingestion phase.
+ * </p>
+ */
 @RestController
 @RequestMapping("/api/v1/results")
 @RequiredArgsConstructor
 public class ResultController implements ResultApi {
 
-  // Inyectamos el nuevo repositorio jOOQ, perfecto para consultas de lectura directa
   private final DbCalculationResultRepository repository;
 
+  /**
+   * Retrieves the current processing state or the final JSON result of a calculation.
+   *
+   * @param fileId The unique correlation identifier assigned during file ingestion.
+   * @return A {@link ResponseEntity} containing the typed status and the corresponding HTTP status code.
+   */
   @Override
   public ResponseEntity<ResultWebResponse> getResult(@PathVariable UUID fileId) {
     return repository.findById(fileId)
         .map(state -> {
 
-          // 1. Pattern Matching limpio para crear el DTO de respuesta
           ResultWebResponse responseBody = switch (state) {
             case CalculationState.Pending p ->
                 new ResultWebResponse.Success(new ResultResponse.Pending("Calculation is pending"));
@@ -39,20 +50,18 @@ public class ResultController implements ResultApi {
                 new ResultWebResponse.Success(new ResultResponse.Processing("Calculation in progress"));
 
             case CalculationState.Failed f ->
-                new ResultWebResponse.Failure(new ApiError("Error en el cálculo", f.errorMessage()));
+                new ResultWebResponse.Failure(new ApiError("Calculation error", f.errorMessage()));
 
             case CalculationState.Success s ->
                 new ResultWebResponse.Success(new ResultResponse.Success(s.payload()));
           };
 
-          // 2. Resolvemos el HttpStatus según el estado
           HttpStatus status = switch (state) {
             case CalculationState.Failed f -> HttpStatus.INTERNAL_SERVER_ERROR;
             case CalculationState.Success s -> HttpStatus.OK;
-            default -> HttpStatus.ACCEPTED; // Pending & Processing
+            default -> HttpStatus.ACCEPTED;
           };
 
-          // 3. Devolvemos el ResponseEntity sin necesidad de casteos feos
           var responseEntityBuilder = ResponseEntity.status(status);
 
           if (state instanceof CalculationState.Success) {
@@ -63,7 +72,7 @@ public class ResultController implements ResultApi {
         })
         .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
             .body(new ResultWebResponse.Failure(
-                new ApiError("No se encontraron resultados para el ID proporcionado.")
+                new ApiError("No results found for the provided ID.")
             ))
         );
   }

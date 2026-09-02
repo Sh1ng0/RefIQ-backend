@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * (Success, Invalid Request, Engine Failure, Data Inconsistency) in the controller layer.
  * </p>
  */
-
 @Schema(oneOf = {
     CalculationResult.Success.class,
     CalculationResult.InvalidRequest.class,
@@ -40,12 +39,7 @@ public sealed interface CalculationResult {
    * Maps to HTTP 422 Unprocessable Entity.
    * </p>
    */
-  // Mirar como el servicio gestiona esto, quizá mirar de generar más entradas en el logger
-  // SObre todo para qué tipos de inconstiencia pueden haber y qué enviarle al front de manera más clara
-  // Se cayó la red? Archivo corrupto? Etc
   record DataInconsistency(String details) implements CalculationResult {}
-
-
 
   record AlreadyHandled(String status) implements CalculationResult {}
 }

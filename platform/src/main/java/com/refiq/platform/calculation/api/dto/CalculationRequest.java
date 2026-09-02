@@ -1,6 +1,5 @@
 package com.refiq.platform.calculation.api.dto;
 
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Objects;
 
@@ -31,10 +30,7 @@ public record CalculationRequest(
 
     @Schema(description = "LOINC code for traceability", example = "26464-8", nullable = true)
     String testCode
-    // Por temas de trazabilidad para el back, si el front no envía nada será "null", mirar el script de R y el PlumberAdapter (Línea 50)
-    // Y el Plumber adapter
 ) {
-
 
   /**
    * Compact constructor for validation and default value assignment.
@@ -46,8 +42,7 @@ public record CalculationRequest(
   public CalculationRequest {
     Objects.requireNonNull(s3Key, "The s3Key is mandatory");
 
-    // Normalización: Si vienen nulos, asignamos defaults.
-    // Al ser compacto, esto modifica el valor que finalmente se guarda en el record.
+    // Normalization: Assign defaults if null.
     if (percentileLow == null) {
       percentileLow = 0.025;
     }
@@ -55,7 +50,7 @@ public record CalculationRequest(
       percentileHigh = 0.975;
     }
 
-    // Validación
+    // Validation
     if (percentileLow >= percentileHigh) {
       throw new IllegalArgumentException("Lower percentile must be smaller than upper percentile");
     }

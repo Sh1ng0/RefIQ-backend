@@ -13,8 +13,10 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
   /**
-   * Global configuration for the API documentation.
+   * Configures the global settings for the API documentation.
+   * <p>
    * Defines the API title, version, and security schemes (JWT/Basic) used across all modules.
+   * </p>
    */
   @Bean
   public OpenAPI customOpenAPI() {

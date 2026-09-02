@@ -11,15 +11,14 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-
 /**
- * Shared configuration for Amazon S3 infrastructure.
+ * Configures the shared Amazon S3 infrastructure.
  * <p>
- * This class establishes the beans required to interact with object storage. It is designed to work
+ * Establishes the beans required to interact with object storage. It is designed to work
  * transparently across different environments:
  * <ul>
  * <li><strong>Production (AWS):</strong> Uses standard region and IAM/Key credentials.</li>
- * <li><strong>Development (LocalStack):</strong> Supports endpoint overriding, path-style access,
+ * <li><strong>Development (LocalStack/MinIO):</strong> Supports endpoint overriding, path-style access,
  * and specific Docker network routing for presigned URLs.</li>
  * </ul>
  * </p>
@@ -39,7 +38,6 @@ public class S3Config {
   @Value("${aws.secretAccessKey:}")
   private String secretKey;
 
-
   /**
    * Special endpoint for presigned URLs.
    * Required when the address used by the backend to reach S3 (e.g., internal Docker network)
@@ -47,7 +45,6 @@ public class S3Config {
    */
   @Value("${refiq.storage.s3.presigned-endpoint:}")
   private String presignedEndpoint;
-
 
   /**
    * Configures and provides the synchronous {@link S3Client}.
@@ -63,7 +60,7 @@ public class S3Config {
     var builder = S3Client.builder()
         .region(Region.of(region))
         .serviceConfiguration(S3Configuration.builder()
-            .pathStyleAccessEnabled(true) // Crucial para LocalStack
+            .pathStyleAccessEnabled(true) // Crucial for LocalStack/MinIO compatibility
             .build());
 
     if (endpoint != null && !endpoint.isBlank()) {
@@ -103,8 +100,8 @@ public class S3Config {
     var builder = S3Presigner.builder()
         .region(Region.of(region));
 
-    // La configuración de S3 para forzar el Path Style
-    // Esto es vital para que LocalStack funcione en redes de Docker
+    // S3 configuration to force Path Style.
+    // This is vital for LocalStack/MinIO to function properly within Docker networks.
     builder.serviceConfiguration(S3Configuration.builder()
         .pathStyleAccessEnabled(true)
         .build());
@@ -129,6 +126,4 @@ public class S3Config {
     }
     return builder.build();
   }
-
-
 }

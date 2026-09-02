@@ -16,23 +16,25 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Componente global de manejo de excepciones para la API REST.
+ * Acts as the global exception handling component for the REST API.
  * <p>
- * Actúa como un interceptor (AOP) que captura excepciones lanzadas por el framework y
- * fallos técnicos de infraestructura, transformándolos en respuestas HTTP estructuradas.
+ * Functions as an AOP interceptor that catches exceptions thrown by the framework and
+ * technical infrastructure failures, translating them into structured HTTP responses.
+ * </p>
  * <p>
- * Implementa el Patrón Envoltorio (Envelope), garantizando que todos los errores
- * mantengan consistencia estructural con los fallos de dominio:
+ * Implements the Envelope Pattern, ensuring that all errors maintain structural consistency
+ * with domain-specific failures:
  * <pre>
  * {
  *   "error": {
- *     "error": "Descripción general",
+ *     "error": "General description",
  *     "details": {
- *       "campo": "Mensaje de error específico"
+ *       "field": "Specific error message"
  *     }
  *   }
  * }
  * </pre>
+ * </p>
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -44,37 +46,37 @@ public class GlobalExceptionHandler {
     var errors = ex.getBindingResult().getFieldErrors().stream()
         .collect(Collectors.toMap(
             FieldError::getField,
-            e -> e.getDefaultMessage() != null ? e.getDefaultMessage() : "Error de validación",
+            e -> e.getDefaultMessage() != null ? e.getDefaultMessage() : "Validation error",
             (existing, replacement) -> existing
         ));
 
-    ApiError apiError = new ApiError("Error de validación en los datos enviados", errors);
+    ApiError apiError = new ApiError("Validation error in the provided data", errors);
     return ResponseEntity.badRequest().body(Map.of("error", apiError));
   }
 
   @ExceptionHandler(MaxUploadSizeExceededException.class)
   public ResponseEntity<Map<String, ApiError>> handleMaxSizeException(MaxUploadSizeExceededException e) {
-    ApiError apiError = new ApiError("El archivo excede el tamaño máximo permitido");
+    ApiError apiError = new ApiError("The file exceeds the maximum allowed size.");
     return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED).body(Map.of("error", apiError));
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<Map<String, ApiError>> handleMalformedJson(HttpMessageNotReadableException e) {
-    ApiError apiError = new ApiError("El cuerpo de la petición (JSON) es inválido o falta.");
+    ApiError apiError = new ApiError("The request body (JSON) is missing or malformed.");
     return ResponseEntity.badRequest().body(Map.of("error", apiError));
   }
 
   @ExceptionHandler(UncheckedIOException.class)
   public ResponseEntity<Map<String, ApiError>> handleUncheckedIOException(UncheckedIOException e) {
-    log.error("Error crítico de I/O en la infraestructura", e);
-    ApiError apiError = new ApiError("Error interno del servidor al procesar el archivo.");
+    log.error("Critical I/O infrastructure error", e);
+    ApiError apiError = new ApiError("Internal server error while processing the file.");
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", apiError));
   }
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, ApiError>> handleGenericException(Exception e) {
-    log.error("Error no controlado en la plataforma", e);
-    ApiError apiError = new ApiError("Error inesperado en el servidor.");
+    log.error("Unhandled platform error", e);
+    ApiError apiError = new ApiError("Unexpected server error.");
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", apiError));
   }
 }

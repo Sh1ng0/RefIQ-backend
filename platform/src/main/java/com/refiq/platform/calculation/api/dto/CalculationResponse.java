@@ -29,9 +29,9 @@ public record CalculationResponse(
       String name,
       Double value,
 
-      // Puede ser null si el CSV solo tiene población
+      // Can be null if the CSV only contains population data
       String unit,
-      @JsonProperty("reference_range") String referenceRange, // Formato "70-100"
+      @JsonProperty("reference_range") String referenceRange, // Format "70-100"
       String notes
   ) {
 

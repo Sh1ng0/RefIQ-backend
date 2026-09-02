@@ -6,6 +6,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+/**
+ * Configures the HTTP client dedicated to the R/Plumber statistical engine.
+ */
 @Configuration
 public class PlumberClientConfig {
 
@@ -15,7 +18,6 @@ public class PlumberClientConfig {
       @Value("${plumber.api.url}") String baseUrl,
       @Value("${plumber.timeout.read-seconds:60}") int readTimeoutSeconds) {
 
-    // Configuramos la red dura (Timeouts)
     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
     factory.setConnectTimeout(5000);
     factory.setReadTimeout(readTimeoutSeconds * 1000);

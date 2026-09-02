@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 /**
  * Event listener responsible for tracking the lifecycle of asynchronous calculation processes.
  * <p>
- * Refactorizado a DOP. Actúa como el iniciador de la máquina de estados,
- * traduciendo eventos de dominio transversales en registros puramente inmutables de jOOQ.
+ * Acts as the initiator of the state machine, translating cross-domain events
+ * into immutable state records.
  * </p>
  */
 @Service
@@ -23,7 +23,6 @@ public class CalculationTrackingListener {
 
   private static final Logger log = LoggerFactory.getLogger(CalculationTrackingListener.class);
 
-  // Inyectamos el nuevo repositorio
   private final DbCalculationResultRepository repository;
 
   /**
@@ -33,10 +32,8 @@ public class CalculationTrackingListener {
   void on(FileAcceptedEvent event) {
     CalculationTrackingLogEvent.TRACKING_EVENT_RECEIVED.log(log, event.fileId());
 
-    // 1. Instanciamos el estado inmutable (sin nulos, sin setters)
     var pendingState = new CalculationState.Pending(event.fileId());
 
-    // 2. Inserción SQL explícita
     repository.insert(pendingState);
 
     CalculationTrackingLogEvent.TRACKING_RECORD_CREATED.log(log, event.fileId());
@@ -49,7 +46,6 @@ public class CalculationTrackingListener {
   void on(IngestionFailedEvent event) {
     repository.findById(event.fileId()).ifPresent(currentState -> {
 
-      // Creamos la caja hermética de fallo y mandamos la actualización exacta
       var failedState = new CalculationState.Failed(event.fileId(), event.errorMessage());
 
       repository.update(failedState);

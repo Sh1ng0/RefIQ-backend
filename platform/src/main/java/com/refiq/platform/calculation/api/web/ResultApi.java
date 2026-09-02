@@ -18,17 +18,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.UUID;
 
 @RequestMapping("/api/results")
-@Tag(name = "Result Module", description = "Endpoints para consultar el estado y resultado del procesamiento asíncrono")
+@Tag(name = "Result Module", description = "Endpoints to query the status and result of the asynchronous processing")
 public interface ResultApi {
 
   @Operation(
-      summary = "Consultar resultado del análisis",
-      description = "Permite al cliente hacer polling mediante el Correlation ID (fileId) para obtener el estado del cálculo o el resultado final del motor estadístico."
+      summary = "Query analysis result",
+      description = "Allows the client to poll using the Correlation ID (fileId) to obtain the calculation status or the final result from the statistical engine."
   )
   @ApiResponses(value = {
       @ApiResponse(
           responseCode = "200",
-          description = "Cálculo finalizado con éxito. Devuelve los intervalos de referencia.",
+          description = "Calculation successfully completed. Returns the reference intervals.",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = ResultWebResponse.Success.class)
@@ -36,56 +36,56 @@ public interface ResultApi {
       ),
       @ApiResponse(
           responseCode = "202",
-          description = "Procesamiento en curso (PENDING). El cliente debe seguir haciendo polling.",
+          description = "Processing in progress (PENDING). The client should continue polling.",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
-              schema = @Schema(implementation = ResultWebResponse.Success.class), // O un record específico "Pending"
+              schema = @Schema(implementation = ResultWebResponse.Success.class),
               examples = @ExampleObject(
                   name = "ProcessingExample",
-                  value = "{\n  \"data\": {\n    \"status\": \"PENDING\",\n    \"message\": \"El archivo se está procesando en el Data Lake o motor R\"\n  }\n}"
+                  value = "{\n  \"data\": {\n    \"status\": \"PENDING\",\n    \"message\": \"The file is being processed in the Data Lake or R engine\"\n  }\n}"
               )
           )
       ),
       @ApiResponse(
           responseCode = "404",
-          description = "No se encontró el registro de seguimiento para el ID proporcionado.",
+          description = "No tracking record found for the provided ID.",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = ResultWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "NotFoundExample",
-                  value = "{\n  \"error\": {\n    \"error\": \"No se encontraron resultados para el ID proporcionado.\",\n    \"details\": null\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"No results found for the provided ID.\",\n    \"details\": null\n  }\n}"
               )
           )
       ),
       @ApiResponse(
           responseCode = "422",
-          description = "Fallo de negocio en el cálculo (Ej. CSV inválido, falta de datos).",
+          description = "Business failure during calculation (e.g., invalid CSV, missing data).",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = ResultWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "DataInconsistencyExample",
-                  value = "{\n  \"error\": {\n    \"error\": \"El CSV canónico no cumple el contrato: Falta columna 'value'.\",\n    \"details\": null\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"The canonical CSV does not meet the contract: Missing 'value' column.\",\n    \"details\": null\n  }\n}"
               )
           )
       ),
       @ApiResponse(
           responseCode = "500",
-          description = "Fallo técnico irrecuperable (El proceso asíncrono falló y no reintentará más).",
+          description = "Unrecoverable technical failure (The asynchronous process failed and will not retry).",
           content = @Content(
               mediaType = MediaType.APPLICATION_JSON_VALUE,
               schema = @Schema(implementation = ResultWebResponse.Failure.class),
               examples = @ExampleObject(
                   name = "EngineFailedExample",
-                  value = "{\n  \"error\": {\n    \"error\": \"Error interno del motor de análisis tras múltiples intentos.\",\n    \"details\": null\n  }\n}"
+                  value = "{\n  \"error\": {\n    \"error\": \"Internal analysis engine error after multiple attempts.\",\n    \"details\": null\n  }\n}"
               )
           )
       )
   })
   @GetMapping(value = "/{fileId}", produces = MediaType.APPLICATION_JSON_VALUE)
   ResponseEntity<ResultWebResponse> getResult(
-      @Parameter(description = "UUID del archivo proporcionado durante la ingesta", required = true)
+      @Parameter(description = "UUID of the file provided during ingestion", required = true)
       @PathVariable("fileId") UUID fileId
   );
 }

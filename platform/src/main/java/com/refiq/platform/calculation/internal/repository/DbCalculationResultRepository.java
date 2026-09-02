@@ -10,8 +10,10 @@ import org.jooq.JSONB;
 import org.springframework.stereotype.Repository;
 
 /**
- * Data-Oriented repository for the calculation tracking state machine.
- * Interacts directly with Postgres using jOOQ and maps rows to the Sealed Interface.
+ * Data-oriented repository for the calculation tracking state machine.
+ * <p>
+ * Interacts directly with PostgreSQL using jOOQ and maps rows to the sealed domain interface.
+ * </p>
  */
 @Repository
 public class DbCalculationResultRepository {
@@ -23,7 +25,7 @@ public class DbCalculationResultRepository {
   }
 
   /**
-   * Inicializa el tracking insertando el estado PENDING.
+   * Initializes the tracking flow by inserting the PENDING state.
    */
   public void insert(CalculationState.Pending state) {
     dsl.insertInto(CALCULATION_RESULTS)
@@ -33,10 +35,12 @@ public class DbCalculationResultRepository {
   }
 
   /**
-   * Cerrojo de concurrencia optimista (Idempotencia).
-   * Intenta reclamar un cálculo pendiente para procesarlo.
+   * Optimistic concurrency lock for idempotency.
+   * <p>
+   * Attempts to claim a pending calculation to safely process it in a distributed environment.
+   * </p>
    *
-   * @return El número de filas afectadas (1 si lo reclamó con éxito, 0 si ya estaba reclamado).
+   * @return The number of affected rows (1 if successfully claimed, 0 if already processing/handled).
    */
   public int claimPendingCalculation(UUID id) {
     return dsl.update(CALCULATION_RESULTS)
@@ -47,8 +51,8 @@ public class DbCalculationResultRepository {
   }
 
   /**
-   * Recupera la fila de base de datos y la "rehidrata" instanciando EXCLUSIVAMENTE
-   * el record de la interfaz sellada que corresponde a su estado actual.
+   * Retrieves the database row and explicitly rehydrates it into the exact
+   * sealed interface record that corresponds to its current state.
    */
   public Optional<CalculationState> findById(UUID id) {
     return dsl.selectFrom(CALCULATION_RESULTS)
@@ -64,15 +68,17 @@ public class DbCalculationResultRepository {
                 record.getPayload() != null ? record.getPayload().data() : null
             );
             case "FAILED" -> new CalculationState.Failed(record.getId(), record.getErrorMessage());
-            default -> throw new IllegalStateException("Estado desconocido en BD: " + status);
+            default -> throw new IllegalStateException("Unknown database status: " + status);
           };
         });
   }
 
   /**
-   * Actualiza la fila en base de datos.
-   * Utiliza Pattern Matching para generar la query SQL exacta según el tipo de estado,
-   * sin setear campos irrelevantes a NULL manualmente.
+   * Updates the database row.
+   * <p>
+   * Leverages pattern matching to generate the exact SQL query depending on the state type,
+   * avoiding the need to manually set irrelevant fields to NULL.
+   * </p>
    */
   public void update(CalculationState state) {
     var step = dsl.update(CALCULATION_RESULTS);

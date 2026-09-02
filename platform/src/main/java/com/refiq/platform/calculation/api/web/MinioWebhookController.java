@@ -1,13 +1,11 @@
 package com.refiq.platform.calculation.api.web;
 
-
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResult;
 import com.refiq.platform.calculation.internal.service.CalculationLogEvent;
 import com.refiq.platform.calculation.internal.service.CalculationService;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,8 +15,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-
 
 /**
  * REST Controller responsible for handling automated S3 event notifications from MinIO.
@@ -31,29 +27,23 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/webhooks/minio")
-
 public class MinioWebhookController {
 
   private static final Logger log = LoggerFactory.getLogger(MinioWebhookController.class);
   private final CalculationService calculationService;
-
-
-
   private final ExecutorService webhookExecutor;
 
-  // --- DTOs internos para mapear el JSON de MinIO ---
+  // --- Internal DTOs to map the MinIO JSON payload ---
   public record MinioEvent(List<MinioRecord> Records) {}
   public record MinioRecord(MinioS3 s3) {}
   public record MinioS3(MinioObject object) {}
   public record MinioObject(String key) {}
-
 
   public MinioWebhookController(CalculationService calculationService,
       @Qualifier("webhookExecutor") ExecutorService webhookExecutor) {
     this.calculationService = calculationService;
     this.webhookExecutor = webhookExecutor;
   }
-
 
   /**
    * Processes incoming webhook events from MinIO triggered by S3 object modifications.
@@ -76,24 +66,19 @@ public class MinioWebhookController {
     for (MinioRecord record : event.Records()) {
       String s3Key = record.s3().object().key();
 
-
       if (s3Key != null && s3Key.startsWith("3.Gold/")) {
         CalculationLogEvent.MINIO_WEBHOOK_RECEIVED.log(log, s3Key);
-
 
         String testCode = extractAnalyteFromKey(s3Key);
 
         CalculationRequest request = new CalculationRequest(s3Key, null, null, testCode);
 
-
         webhookExecutor.submit(() -> processCalculation(request));
       }
     }
 
-
     return ResponseEntity.ok().build();
   }
-
 
   /**
    * Asynchronously orchestrates the reference interval calculation for a specific clinical file.
@@ -110,7 +95,6 @@ public class MinioWebhookController {
     try {
       CalculationResult result = calculationService.runAnalysis(request);
 
-
       switch (result) {
         case CalculationResult.Success s ->
             CalculationLogEvent.CALCULATION_SUCCESS.log(log, request.testCode(), s.response().labResult().referenceRange());
@@ -126,13 +110,11 @@ public class MinioWebhookController {
 
         case CalculationResult.AlreadyHandled ah ->
             CalculationLogEvent.MINIO_WEBHOOK_DUPLICATE_IGNORED.log(log, request.testCode(), ah.status());
-
       }
     } catch (Exception e) {
       CalculationLogEvent.MINIO_WEBHOOK_ERROR.log(log, e.getMessage());
     }
   }
-
 
   /**
    * Extracts the clinical analyte identifier from a standardized S3 Gold layer key.
@@ -153,5 +135,4 @@ public class MinioWebhookController {
       return "UNKNOWN";
     }
   }
-
 }

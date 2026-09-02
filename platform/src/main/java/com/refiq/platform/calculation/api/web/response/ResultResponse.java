@@ -1,13 +1,9 @@
 package com.refiq.platform.calculation.api.web.response;
 
-
 import com.fasterxml.jackson.annotation.JsonRawValue;
 
-
-
-
 /**
- * DTO que representa los posibles estados de salida de una consulta de resultados.
+ * Represents the possible output states for a result query.
  */
 public sealed interface ResultResponse {
 
@@ -15,8 +11,6 @@ public sealed interface ResultResponse {
 
   record Processing(String message) implements ResultResponse {}
 
-//  record Failing(String error) implements ResultResponse {}
-
-  // @JsonRawValue evita que Jackson escape el String JSON que viene de la BD
+  // @JsonRawValue prevents Jackson from escaping the JSON String retrieved from the DB
   record Success(@JsonRawValue String payload) implements ResultResponse {}
 }

@@ -130,4 +130,24 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
     // We have to ascertain that R was not invoked
     verify(analysisPort, never()).calculate(any());
   }
+
+  @Test
+  @DisplayName("runAnalysis: Debe devolver InvalidRequest si el s3Key no contiene un UUID válido")
+  void shouldReturnInvalidRequestWhenNoUuidInKey() {
+    // GIVEN
+    String badS3Key = "3.Gold/TSH/archivo-corrupto-sin-identificador.parquet";
+    CalculationRequest request = new CalculationRequest(badS3Key, 0.025, 0.975, "TSH");
+
+    // WHEN
+    CalculationResult result = calculationService.runAnalysis(request);
+
+    // THEN
+    assertThat(result).isInstanceOf(CalculationResult.InvalidRequest.class);
+
+    CalculationResult.InvalidRequest invalid = (CalculationResult.InvalidRequest) result;
+    assertThat(invalid.reason()).contains("No valid UUID found in the S3 path");
+
+    // Garantizamos que ni nos hemos acercado al motor de R
+    verify(analysisPort, never()).calculate(any());
+  }
 }

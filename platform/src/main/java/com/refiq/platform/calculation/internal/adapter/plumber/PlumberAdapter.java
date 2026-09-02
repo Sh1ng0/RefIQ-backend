@@ -1,7 +1,6 @@
 package com.refiq.platform.calculation.internal.adapter.plumber;
 
-
-import com.fasterxml.jackson.databind.JsonNode; // Necesario para leer errores dinámicos
+import com.fasterxml.jackson.databind.JsonNode; // Required to read dynamic errors
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResponse;
@@ -10,7 +9,7 @@ import com.refiq.platform.calculation.internal.service.CalculationLogEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.client.SimpleClientHttpRequestFactory; // Para timeouts básicos
+import org.springframework.http.client.SimpleClientHttpRequestFactory; // For basic timeouts
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
@@ -22,9 +21,8 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import java.time.Duration;
 import java.util.Map;
 
-
 /**
- * Secondary adapter implementing communication with the R/Plumber statistical engine.
+ * Implements communication with the R/Plumber statistical engine as a secondary adapter.
  * <p>
  * Responsibilities:
  * <ul>
@@ -32,6 +30,11 @@ import java.util.Map;
  * <li>Invokes the Plumber REST API.</li>
  * <li>Translates HTTP errors (timeouts, 422, 500) into domain-specific exceptions.</li>
  * </ul>
+ * </p>
+ * <p>
+ * <strong>Architectural Note:</strong> Retry logic for transient network failures is intentionally
+ * delegated to the Spring framework ({@code @Retryable}) for simplicity and to avoid reinventing
+ * standard resilience patterns, maintaining the adapter's focus on payload translation.
  * </p>
  */
 @Component
@@ -46,7 +49,7 @@ public class PlumberAdapter implements AnalysisPort {
   private final Duration presignedUrlDuration;
 
   public PlumberAdapter(
-      RestClient plumberRestClient, // ¡Inyectamos el bean directamente!
+      RestClient plumberRestClient, // Injecting the pre-configured bean directly
       S3Presigner s3Presigner,
       ObjectMapper objectMapper,
       @Value("${refiq.storage.s3.bucket-name}") String bucketName,
@@ -59,22 +62,21 @@ public class PlumberAdapter implements AnalysisPort {
     this.presignedUrlDuration = Duration.ofMinutes(durationMinutes);
   }
 
-
   /**
    * {@inheritDoc}
    * <p>
-   * This implementation performs a synchronous HTTP POST to the R container.
-   * Tolerates transient network failures and 500 errors by retrying locally with an exponential backoff.
+   * Performs a synchronous HTTP POST to the R container. Tolerates transient network
+   * failures and 500 errors by retrying locally with an exponential backoff.
    * </p>
    *
    * @throws DataInconsistencyException If the engine returns 422 (valid request, invalid data). Not retryable.
    * @throws EngineUnavailableException If the engine returns 500 or cannot be reached after all retries.
    */
   @Retryable(
-      retryFor = { Exception.class }, // Atrapa timeouts, RestClientException, EngineUnavailableException, etc.
-      exclude = { DataInconsistencyException.class }, // ¡Fail fast! No reintentar si el CSV está mal.
+      retryFor = { Exception.class },
+      noRetryFor = { DataInconsistencyException.class }, // <-- El reemplazo moderno de 'exclude'
       maxAttempts = 3,
-      backoff = @Backoff(delay = 2000, multiplier = 2) // Espera 2s, luego 4s antes del último intento.
+      backoff = @Backoff(delay = 2000, multiplier = 2)
   )
   @Override
   public CalculationResponse calculate(CalculationRequest request) {
@@ -107,12 +109,14 @@ public class PlumberAdapter implements AnalysisPort {
 
             CalculationLogEvent.R_TECHNICAL_ERROR.log(log, res.getStatusCode() + " - " + errorReason);
 
+            // Retryable consequences:
+            // TECHNICAL DEBT
             if (res.getStatusCode().value() == 422) {
-              // Sube de inmediato, el 'exclude' de @Retryable evita que vuelva a intentarlo
+              // Thrown immediately; the 'exclude' on @Retryable prevents further attempts.
               throw new DataInconsistencyException(errorReason);
             } else {
-              // Dispara el reintento de Spring (hasta 3 veces)
-              throw new EngineUnavailableException("Error R (" + res.getStatusCode() + "): " + errorReason);
+              // Triggers Spring retry mechanism (up to 3 times)
+              throw new EngineUnavailableException("R Error (" + res.getStatusCode() + "): " + errorReason);
             }
           }
         });
@@ -126,7 +130,7 @@ public class PlumberAdapter implements AnalysisPort {
       }
       return jsonBody; // Fallback
     } catch (Exception e) {
-      return "Error desconocido (No JSON): " + jsonBody;
+      return "Unknown error (Not JSON): " + jsonBody;
     }
   }
 
@@ -144,16 +148,13 @@ public class PlumberAdapter implements AnalysisPort {
     return s3Presigner.presignGetObject(presignRequest).url().toString();
   }
 
-
   public static class DataInconsistencyException extends RuntimeException {
-
     public DataInconsistencyException(String msg) {
       super(msg);
     }
   }
 
   public static class EngineUnavailableException extends RuntimeException {
-
     public EngineUnavailableException(String msg) {
       super(msg);
     }

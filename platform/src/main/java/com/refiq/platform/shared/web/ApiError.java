@@ -6,7 +6,7 @@ import java.util.Map;
 /**
  * Represents a standard API error response payload.
  * <p>
- * This class encapsulates the details of an error that occurred during the API execution,
+ * Encapsulates the details of an error that occurred during the API execution,
  * providing a consistent structure for clients to parse and handle exceptions.
  * </p>
  */
@@ -20,15 +20,17 @@ public record ApiError(
 ) {
 
   /**
-   * Constructor para errores simples sin detalles adicionales.
+   * Constructs a simple error response without additional details.
    */
   public ApiError(String error) {
     this(error, (Map<String, String>) null);
   }
 
   /**
-   * Constructor de conveniencia para errores con un único motivo (reason).
-   * Gestiona de forma segura los valores nulos para evitar fallos al crear el mapa.
+   * Constructs an error response with a single specific reason.
+   * <p>
+   * Safely handles null values to prevent map instantiation failures.
+   * </p>
    */
   public ApiError(String error, String reason) {
     this(
