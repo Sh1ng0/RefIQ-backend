@@ -1,6 +1,5 @@
 package com.refiq.platform.ingestion.internal.service;
 
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -18,13 +17,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.modulith.test.ApplicationModuleTest;
 import org.springframework.modulith.test.PublishedEvents;
-import org.springframework.test.context.ActiveProfiles;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 @RefiqModuleTest
 @DisplayName("Ingestion - Service & S3 Storage (LocalStack Integration)")
@@ -33,7 +29,6 @@ class IngestionServiceIntegrationTest extends BaseS3Test {
   @Autowired
   private IngestionService ingestionService;
 
-
   @Autowired
   private S3Client s3Client;
 
@@ -41,7 +36,7 @@ class IngestionServiceIntegrationTest extends BaseS3Test {
   private String bucketName;
 
   @Test
-  @DisplayName("Debe procesar un archivo > 5MB, subirlo por partes a S3 y publicar FileAcceptedEvent")
+  @DisplayName("Should process a file > 5MB, upload it via multipart to S3, and publish FileAcceptedEvent")
   void shouldUploadLargeFileMultipartAndPublishEvent(PublishedEvents events) {
     // GIVEN
     int size6MB = 6 * 1024 * 1024;
@@ -52,12 +47,12 @@ class IngestionServiceIntegrationTest extends BaseS3Test {
     }
 
     IngestionFile file = new IngestionFile(
-        "pacientes_gold.csv",
+        "patients_gold.csv",
         Analyte.TSH,
         () -> new ByteArrayInputStream(fakeData),
         size6MB,
         "text/csv",
-        () -> {} // Cleanup dummy
+        () -> {}
     );
 
     // WHEN
@@ -84,7 +79,6 @@ class IngestionServiceIntegrationTest extends BaseS3Test {
           assertThat(s3Object.contentLength()).isEqualTo(size6MB);
           assertThat(s3Object.metadata()).containsEntry("record-id", fileId.toString());
         });
-
 
     var publishedEvents = events.ofType(FileAcceptedEvent.class);
     assertThat(publishedEvents).hasSize(1);

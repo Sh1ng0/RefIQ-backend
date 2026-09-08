@@ -34,7 +34,7 @@ class IngestionControllerWebTest extends BaseWebWithAuthTest {
 
   @Test
   @WithMockUser
-  @DisplayName("Debe devolver 400 Bad Request si el archivo está vacío")
+  @DisplayName("Should return 400 Bad Request if the file is empty")
   void shouldReturn400WhenFileIsEmpty() throws Exception {
     // GIVEN
     MockMultipartFile emptyFile = new MockMultipartFile(
@@ -46,15 +46,14 @@ class IngestionControllerWebTest extends BaseWebWithAuthTest {
             .file(emptyFile)
             .param("analyte", "TSH"))
         .andExpect(status().isBadRequest())
-
-        .andExpect(jsonPath("$.error.error").value("El archivo está vacío."));
+        .andExpect(jsonPath("$.error.error").value("The file is empty."));
 
     verifyNoInteractions(ingestionService);
   }
 
   @Test
   @WithMockUser
-  @DisplayName("Debe devolver 400 Bad Request si el analito no está soportado")
+  @DisplayName("Should return 400 Bad Request if the analyte is unsupported")
   void shouldReturn400WhenAnalyteIsUnsupported() throws Exception {
     // GIVEN
     MockMultipartFile validFile = new MockMultipartFile(
@@ -66,15 +65,14 @@ class IngestionControllerWebTest extends BaseWebWithAuthTest {
             .file(validFile)
             .param("analyte", "INVALID_ANALYTE"))
         .andExpect(status().isBadRequest())
-
-        .andExpect(jsonPath("$.error.error").value("Analito no soportado: INVALID_ANALYTE"));
+        .andExpect(jsonPath("$.error.error").value("Unsupported analyte: INVALID_ANALYTE"));
 
     verifyNoInteractions(ingestionService);
   }
 
   @Test
   @WithMockUser
-  @DisplayName("Debe devolver 202 Accepted cuando el archivo es válido y se inicia el procesamiento")
+  @DisplayName("Should return 202 Accepted when the file is valid and processing starts")
   void shouldReturn202WhenValidFileIsProcessed() throws Exception {
     // GIVEN
     MockMultipartFile validFile = new MockMultipartFile(
@@ -100,7 +98,7 @@ class IngestionControllerWebTest extends BaseWebWithAuthTest {
 
   @Test
   @WithMockUser
-  @DisplayName("Debe devolver 503 Service Unavailable si el almacenamiento falla")
+  @DisplayName("Should return 503 Service Unavailable if storage fails")
   void shouldReturn503WhenStorageIsUnavailable() throws Exception {
     // GIVEN
     MockMultipartFile validFile = new MockMultipartFile(
@@ -115,8 +113,7 @@ class IngestionControllerWebTest extends BaseWebWithAuthTest {
             .file(validFile)
             .param("analyte", "TSH"))
         .andExpect(status().isServiceUnavailable())
-
-        .andExpect(jsonPath("$.error.error").value("Servicio no disponible"))
+        .andExpect(jsonPath("$.error.error").value("Service unavailable"))
         .andExpect(jsonPath("$.error.details.debug").value("S3 Timeout Connection Exception"));
   }
 }

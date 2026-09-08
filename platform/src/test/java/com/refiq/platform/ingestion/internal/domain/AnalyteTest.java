@@ -13,10 +13,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 class AnalyteTest {
 
   @Test
-  @DisplayName("Debe parsear correctamente un analito exacto")
+  @DisplayName("Should correctly parse an exact match")
   void shouldParseExactMatch() {
     // GIVEN & WHEN
-
     Optional<Analyte> result = Analyte.fromString("TSH");
 
     // THEN
@@ -26,22 +25,21 @@ class AnalyteTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"tsh", " TSH ", "  tSh\n"})
-  @DisplayName("Debe parsear correctamente ignorando mayúsculas y espacios en blanco")
+  @DisplayName("Should correctly parse while ignoring case and whitespace")
   void shouldParseIgnoringCaseAndWhitespace(String noisyInput) {
     // GIVEN & WHEN
     Optional<Analyte> result = Analyte.fromString(noisyInput);
 
     // THEN
-
     assertThat(result).isPresent();
     assertThat(result.get().name()).isEqualTo("TSH");
   }
 
   @Test
-  @DisplayName("Debe devolver Optional.empty() para un analito no soportado")
+  @DisplayName("Should return Optional.empty() for an unsupported analyte")
   void shouldReturnEmptyForUnsupported() {
     // GIVEN & WHEN
-    Optional<Analyte> result = Analyte.fromString("VITAMINA_C_INVENTADA");
+    Optional<Analyte> result = Analyte.fromString("FAKE_VITAMIN_C");
 
     // THEN
     assertThat(result).isEmpty();
@@ -50,13 +48,12 @@ class AnalyteTest {
   @ParameterizedTest
   @NullAndEmptySource
   @ValueSource(strings = {"   ", "\t", "\n"})
-  @DisplayName("Debe devolver Optional.empty() para strings nulos o en blanco")
+  @DisplayName("Should return Optional.empty() for null or blank strings")
   void shouldReturnEmptyForNullOrBlank(String invalidInput) {
     // GIVEN & WHEN
     Optional<Analyte> result = Analyte.fromString(invalidInput);
 
     // THEN
-
     assertThat(result).isEmpty();
   }
 }

@@ -1,7 +1,5 @@
 package com.refiq.platform.shared.web;
 
-
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,59 +30,58 @@ class GlobalExceptionHandlerTest {
 
   @BeforeEach
   void setUp() {
-
     mockMvc = MockMvcBuilders.standaloneSetup(new DummyController())
         .setControllerAdvice(new GlobalExceptionHandler())
         .build();
   }
 
   @Test
-  @DisplayName("Debe manejar MaxUploadSizeExceededException devolviendo 417 Expectation Failed")
+  @DisplayName("Should handle MaxUploadSizeExceededException returning 417 Expectation Failed")
   void shouldHandleMaxUploadSizeExceeded() throws Exception {
+    // WHEN & THEN
     mockMvc.perform(get("/dummy/max-size"))
-        .andExpect(status().isExpectationFailed()) // HttpStatus.EXPECTATION_FAILED
-        .andExpect(jsonPath("$.error.error").value("El archivo excede el tamaño máximo permitido")); // Estructura de ApiError
+        .andExpect(status().isExpectationFailed())
+        .andExpect(jsonPath("$.error.error").value("The file exceeds the maximum allowed size."));
   }
 
   @Test
-  @DisplayName("Debe manejar HttpMessageNotReadableException devolviendo 400 Bad Request")
+  @DisplayName("Should handle HttpMessageNotReadableException returning 400 Bad Request")
   void shouldHandleMalformedJson() throws Exception {
+    // WHEN & THEN
     mockMvc.perform(get("/dummy/malformed-json"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error.error").value("El cuerpo de la petición (JSON) es inválido o falta.")); //[cite: 11]
+        .andExpect(jsonPath("$.error.error").value("The request body (JSON) is missing or malformed."));
   }
 
   @Test
-  @DisplayName("Debe manejar UncheckedIOException devolviendo 500 Internal Server Error")
+  @DisplayName("Should handle UncheckedIOException returning 500 Internal Server Error")
   void shouldHandleUncheckedIoException() throws Exception {
+    // WHEN & THEN
     mockMvc.perform(get("/dummy/io-error"))
         .andExpect(status().isInternalServerError())
-        .andExpect(jsonPath("$.error.error").value("Error interno del servidor al procesar el archivo.")); //[cite: 11]
+        .andExpect(jsonPath("$.error.error").value("Internal server error while processing the file."));
   }
 
   @Test
-  @DisplayName("Debe manejar Exception genérica devolviendo 500 Internal Server Error")
+  @DisplayName("Should handle generic Exception returning 500 Internal Server Error")
   void shouldHandleGenericException() throws Exception {
+    // WHEN & THEN
     mockMvc.perform(get("/dummy/generic-error"))
         .andExpect(status().isInternalServerError())
-        .andExpect(jsonPath("$.error.error").value("Error inesperado en el servidor.")); //[cite: 11]
+        .andExpect(jsonPath("$.error.error").value("Unexpected server error."));
   }
 
   @Test
-  @DisplayName("Debe manejar MethodArgumentNotValidException devolviendo 400 y detalles de validación")
+  @DisplayName("Should handle MethodArgumentNotValidException returning 400 and validation details")
   void shouldHandleValidationErrors() throws Exception {
-
+    // WHEN & THEN
     mockMvc.perform(post("/dummy/validate")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error.error").value("Error de validación en los datos enviados")) //[cite: 11]
-        .andExpect(jsonPath("$.error.details.name").value("El nombre es obligatorio")); // Extrae el defaultMessage[cite: 11]
+        .andExpect(jsonPath("$.error.error").value("Validation error in the provided data"))
+        .andExpect(jsonPath("$.error.details.name").value("The name is mandatory"));
   }
-
-  // -------------------------------------------------------------------------
-  // DUMMY CONTROLLER PARA FORZAR ERRORES
-  // -------------------------------------------------------------------------
 
   @RestController
   static class DummyController {
@@ -96,7 +93,6 @@ class GlobalExceptionHandlerTest {
 
     @GetMapping("/dummy/malformed-json")
     public void throwMalformedJson() {
-
       throw new HttpMessageNotReadableException("JSON parse error", (HttpInputMessage) null);
     }
 
@@ -107,18 +103,16 @@ class GlobalExceptionHandlerTest {
 
     @GetMapping("/dummy/generic-error")
     public void throwGeneric() throws Exception {
-      throw new Exception("Algo catastrófico ocurrió");
+      throw new Exception("Something catastrophic occurred");
     }
 
     @PostMapping("/dummy/validate")
     public void throwValidationError(@Valid @RequestBody DummyDto dto) {
-
     }
   }
 
-
   record DummyDto(
-      @NotBlank(message = "El nombre es obligatorio")
+      @NotBlank(message = "The name is mandatory")
       String name
   ) {}
 }
