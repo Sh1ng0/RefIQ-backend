@@ -20,18 +20,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @DisplayName("Calculation - Result Web Layer (Isolated)")
 class ResultControllerWebTest extends BaseWebWithAuthTest {
 
-  // Inyectamos el nuevo repositorio jOOQ
   @MockitoBean
   private DbCalculationResultRepository repository;
 
   @Test
   @WithMockUser
-  @DisplayName("Debe devolver 202 ACCEPTED si el cálculo está PENDING")
+  @DisplayName("Should return 202 ACCEPTED if the calculation is PENDING")
   void shouldReturn202WhenPending() throws Exception {
     // GIVEN
     UUID fileId = UUID.randomUUID();
-
-    // Instanciamos el record inmutable directamente
     var pendingState = new CalculationState.Pending(fileId);
 
     when(repository.findById(fileId)).thenReturn(Optional.of(pendingState));
@@ -44,7 +41,7 @@ class ResultControllerWebTest extends BaseWebWithAuthTest {
 
   @Test
   @WithMockUser
-  @DisplayName("Debe devolver 200 OK y el JSON si el cálculo está SUCCESS")
+  @DisplayName("Should return 200 OK and the JSON if the calculation is SUCCESS")
   void shouldReturn200WhenSuccess() throws Exception {
     // GIVEN
     UUID fileId = UUID.randomUUID();
@@ -52,7 +49,6 @@ class ResultControllerWebTest extends BaseWebWithAuthTest {
             {"test_code": "TSH", "reference_range": "0.5-4.0"}
             """;
 
-    // El compilador nos obliga a pasar el payload sí o sí para construir el Success
     var successState = new CalculationState.Success(fileId, jsonPayload);
 
     when(repository.findById(fileId)).thenReturn(Optional.of(successState));
@@ -65,24 +61,23 @@ class ResultControllerWebTest extends BaseWebWithAuthTest {
 
   @Test
   @WithMockUser
-  @DisplayName("Debe devolver 500 INTERNAL SERVER ERROR si el cálculo FAILED")
+  @DisplayName("Should return 500 INTERNAL SERVER ERROR if the calculation FAILED")
   void shouldReturn500WhenFailed() throws Exception {
     // GIVEN
     UUID fileId = UUID.randomUUID();
-
-    var failedState = new CalculationState.Failed(fileId, "Timeout en motor R");
+    var failedState = new CalculationState.Failed(fileId, "Timeout in R engine");
 
     when(repository.findById(fileId)).thenReturn(Optional.of(failedState));
 
     // WHEN & THEN
     mockMvc.perform(get("/api/v1/results/{fileId}", fileId))
         .andExpect(status().isInternalServerError())
-        .andExpect(jsonPath("$.error.error").value("Error en el cálculo"));
+        .andExpect(jsonPath("$.error.error").value("Calculation error"));
   }
 
   @Test
   @WithMockUser
-  @DisplayName("Debe devolver 404 NOT FOUND si el UUID no existe")
+  @DisplayName("Should return 404 NOT FOUND if the UUID does not exist")
   void shouldReturn404WhenNotFound() throws Exception {
     // GIVEN
     UUID unknownId = UUID.randomUUID();

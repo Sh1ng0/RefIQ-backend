@@ -7,13 +7,11 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.google.common.util.concurrent.MoreExecutors;
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResponse;
 import com.refiq.platform.calculation.api.dto.CalculationResult;
 import com.refiq.platform.calculation.internal.service.CalculationService;
 import com.refiq.platform.support.slices.BaseWebWithApiKeyTest;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,11 +28,6 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
   @MockitoBean
   private CalculationService calculationService;
 
-  /**
-   * Reemplazamos el ExecutorService asíncrono por un MOCK inteligente.
-   * Interceptamos el submit() y forzamos a que el Runnable se ejecute
-   * instantáneamente en el mismo hilo del test.
-   */
   @TestConfiguration
   static class SyncExecutorConfig {
     @Bean(name = "webhookExecutor")
@@ -43,11 +36,8 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
           org.mockito.Mockito.mock(java.util.concurrent.ExecutorService.class);
 
       org.mockito.Mockito.doAnswer(invocation -> {
-
         Runnable task = invocation.getArgument(0);
-
         task.run();
-
         return java.util.concurrent.CompletableFuture.completedFuture(null);
       }).when(mockExecutor).submit(org.mockito.ArgumentMatchers.any(Runnable.class));
 
@@ -56,7 +46,7 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
   }
 
   @Test
-  @DisplayName("Debe devolver 403 Forbidden si falta la API Key")
+  @DisplayName("Should return 403 Forbidden if the API Key is missing")
   void shouldReturn403WhenApiKeyIsMissing() throws Exception {
     // WHEN & THEN
     mockMvc.perform(post("/api/v1/webhooks/minio")
@@ -66,18 +56,18 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
   }
 
   @Test
-  @DisplayName("Debe devolver 403 Forbidden si la API Key es inválida")
+  @DisplayName("Should return 403 Forbidden if the API Key is invalid")
   void shouldReturn403WhenApiKeyIsInvalid() throws Exception {
     // WHEN & THEN
     mockMvc.perform(post("/api/v1/webhooks/minio")
-            .header(WEBHOOK_TOKEN_HEADER, "llave-pirata")
+            .header(WEBHOOK_TOKEN_HEADER, "invalid-key")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{}"))
         .andExpect(status().isForbidden());
   }
 
   @Test
-  @DisplayName("Debe procesar el payload Gold y devolver 200 OK con API Key válida")
+  @DisplayName("Should process the Gold payload and return 200 OK with a valid API Key")
   void shouldProcessGoldPayloadAndReturn200() throws Exception {
     // GIVEN
     String payload = """
@@ -94,9 +84,8 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
             }
             """;
 
-
     CalculationResponse.LabResult labResult = new CalculationResponse.LabResult(
-        "TSH", "Hormona", 2.5, "mIU/L", "0.4-4.0", null
+        "TSH", "Hormone", 2.5, "mIU/L", "0.4-4.0", null
     );
     when(calculationService.runAnalysis(any(CalculationRequest.class)))
         .thenReturn(new CalculationResult.Success(new CalculationResponse(labResult, Map.of())));
@@ -108,7 +97,6 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
             .content(payload))
         .andExpect(status().isOk());
 
-
     verify(calculationService).runAnalysis(
         org.mockito.ArgumentMatchers.argThat(req ->
             req.s3Key().equals("3.Gold/TSH/TSH_data.parquet") &&
@@ -118,7 +106,7 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
   }
 
   @Test
-  @DisplayName("Debe ignorar archivos que no estén en la capa Gold y devolver 200 OK")
+  @DisplayName("Should ignore non-Gold files and return 200 OK")
   void shouldIgnoreNonGoldFiles() throws Exception {
     // GIVEN
     String payload = """
@@ -142,7 +130,6 @@ class MinioWebhookControllerWebTest extends BaseWebWithApiKeyTest {
             .content(payload))
         .andExpect(status().isOk());
 
-    
     verify(calculationService, never()).runAnalysis(any());
   }
 }

@@ -56,7 +56,7 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
   }
 
   @Test
-  @DisplayName("Listener: Debe crear un registro PENDING al recibir FileAcceptedEvent de Ingestion")
+  @DisplayName("Listener: Should create a PENDING record upon receiving FileAcceptedEvent from Ingestion")
   void shouldCreatePendingRecordOnEvent() {
     // GIVEN
     UUID fileId = UUID.randomUUID();
@@ -72,13 +72,12 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
         .untilAsserted(() -> {
           Optional<CalculationState> saved = repository.findById(fileId);
           assertThat(saved).isPresent();
-          // Verificamos el tipo de la interfaz sellada directamente
           assertThat(saved.get()).isInstanceOf(CalculationState.Pending.class);
         });
   }
 
   @Test
-  @DisplayName("runAnalysis: Debe procesar exitosamente, guardar el JSON y actualizar a SUCCESS")
+  @DisplayName("runAnalysis: Should process successfully, save the JSON, and update to SUCCESS")
   void shouldProcessAndSaveSuccess() {
     // GIVEN
     UUID fileId = UUID.randomUUID();
@@ -104,11 +103,11 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
     assertThat(state).isInstanceOf(CalculationState.Success.class);
 
     CalculationState.Success successState = (CalculationState.Success) state;
-    assertThat(successState.payload()).contains("0.5-4.0"); // Verifica el JSON
+    assertThat(successState.payload()).contains("0.5-4.0");
   }
 
   @Test
-  @DisplayName("runAnalysis: Idempotencia - Debe abortar devolviendo AlreadyHandled si el cálculo ya se hizo")
+  @DisplayName("runAnalysis: Idempotency - Should abort and return AlreadyHandled if calculation was already performed")
   void shouldReturnAlreadyHandledIfClaimed() {
     // GIVEN
     UUID fileId = UUID.randomUUID();
@@ -127,15 +126,14 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
     CalculationResult.AlreadyHandled handled = (CalculationResult.AlreadyHandled) result;
     assertThat(handled.status()).isEqualTo("SUCCESS");
 
-    // We have to ascertain that R was not invoked
     verify(analysisPort, never()).calculate(any());
   }
 
   @Test
-  @DisplayName("runAnalysis: Debe devolver InvalidRequest si el s3Key no contiene un UUID válido")
+  @DisplayName("runAnalysis: Should return InvalidRequest if the s3Key does not contain a valid UUID")
   void shouldReturnInvalidRequestWhenNoUuidInKey() {
     // GIVEN
-    String badS3Key = "3.Gold/TSH/archivo-corrupto-sin-identificador.parquet";
+    String badS3Key = "3.Gold/TSH/corrupted-file-without-identifier.parquet";
     CalculationRequest request = new CalculationRequest(badS3Key, 0.025, 0.975, "TSH");
 
     // WHEN
@@ -147,7 +145,6 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
     CalculationResult.InvalidRequest invalid = (CalculationResult.InvalidRequest) result;
     assertThat(invalid.reason()).contains("No valid UUID found in the S3 path");
 
-    // Garantizamos que ni nos hemos acercado al motor de R
     verify(analysisPort, never()).calculate(any());
   }
 }
