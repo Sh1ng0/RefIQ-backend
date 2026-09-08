@@ -1,7 +1,5 @@
 package com.refiq.platform.auth.internal.security;
 
-
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
@@ -43,19 +41,17 @@ class JwtAuthenticationFilterTest {
 
   @BeforeEach
   void setUp() {
-
     request = new MockHttpServletRequest();
     response = new MockHttpServletResponse();
   }
 
   @AfterEach
   void tearDown() {
-
     SecurityContextHolder.clearContext();
   }
 
   @Test
-  @DisplayName("Filtro: Ignora la petición si no hay cabecera Authorization")
+  @DisplayName("Filter: Ignores the request if there is no Authorization header")
   void shouldIgnoreRequest_WhenNoAuthHeader() throws Exception {
     // GIVEN
 
@@ -68,7 +64,7 @@ class JwtAuthenticationFilterTest {
   }
 
   @Test
-  @DisplayName("Filtro: Ignora la petición si la cabecera no empieza por 'Bearer '")
+  @DisplayName("Filter: Ignores the request if the header does not start with 'Bearer '")
   void shouldIgnoreRequest_WhenAuthHeaderIsMalformed() throws Exception {
     // GIVEN
     request.addHeader("Authorization", "Basic user:password");
@@ -82,11 +78,11 @@ class JwtAuthenticationFilterTest {
   }
 
   @Test
-  @DisplayName("Filtro: No autentica si el token es inválido (Provider devuelve empty)")
+  @DisplayName("Filter: Does not authenticate if the token is invalid (Provider returns empty)")
   void shouldNotAuthenticate_WhenTokenIsInvalid() throws Exception {
     // GIVEN
-    request.addHeader("Authorization", "Bearer token-falso-o-caducado");
-    when(jwtProvider.validateAndExtractUserId("token-falso-o-caducado")).thenReturn(Optional.empty());
+    request.addHeader("Authorization", "Bearer fake-or-expired-token");
+    when(jwtProvider.validateAndExtractUserId("fake-or-expired-token")).thenReturn(Optional.empty());
 
     // WHEN
     jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
@@ -97,12 +93,12 @@ class JwtAuthenticationFilterTest {
   }
 
   @Test
-  @DisplayName("Filtro: Autentica correctamente inyectando el UUID en el contexto")
+  @DisplayName("Filter: Authenticates successfully by injecting the UUID into the context")
   void shouldAuthenticate_WhenTokenIsValid() throws Exception {
     // GIVEN
     UUID userId = UUID.randomUUID();
-    request.addHeader("Authorization", "Bearer token.super.secreto");
-    when(jwtProvider.validateAndExtractUserId("token.super.secreto")).thenReturn(Optional.of(userId));
+    request.addHeader("Authorization", "Bearer super.secret.token");
+    when(jwtProvider.validateAndExtractUserId("super.secret.token")).thenReturn(Optional.of(userId));
 
     // WHEN
     jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
@@ -111,7 +107,7 @@ class JwtAuthenticationFilterTest {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
     assertThat(auth).isNotNull();
-    assertThat(auth.getPrincipal()).isEqualTo(userId); // El principal DEBE ser tu UUID
+    assertThat(auth.getPrincipal()).isEqualTo(userId);
     assertThat(auth.getCredentials()).isNull();
 
     verify(filterChain).doFilter(request, response);

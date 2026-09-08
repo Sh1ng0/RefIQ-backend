@@ -6,8 +6,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-
-
 @DisplayName("AuthRateLimiter - Unit Tests")
 class AuthRateLimiterTest {
 
@@ -18,17 +16,15 @@ class AuthRateLimiterTest {
     rateLimiter = new AuthRateLimiter();
   }
 
-  // --- TESTS DE LOGIN (Límite: 5) ---
-
   @Test
-  @DisplayName("Login: Permite exactamente 5 intentos antes de bloquear")
+  @DisplayName("Login: Allows exactly 5 attempts before blocking")
   void shouldAllowFiveLoginAttemptsAndBlockTheSixth() {
     String email = "hacker@refiq.com";
 
     for (int i = 0; i < 5; i++) {
       boolean result = rateLimiter.tryConsumeLogin(email);
       assertThat(result)
-          .withFailMessage("El intento de login " + (i + 1) + " debería haber sido permitido")
+          .withFailMessage("Login attempt " + (i + 1) + " should have been allowed")
           .isTrue();
     }
 
@@ -37,7 +33,7 @@ class AuthRateLimiterTest {
   }
 
   @Test
-  @DisplayName("Login: Aislamiento - El bloqueo de un email no afecta a otro")
+  @DisplayName("Login: Isolation - Blocking one email does not affect another")
   void shouldIsolateLoginRateLimitsByEmail() {
     String attackerEmail = "attacker@refiq.com";
     String innocentEmail = "innocent@refiq.com";
@@ -50,17 +46,15 @@ class AuthRateLimiterTest {
     assertThat(rateLimiter.tryConsumeLogin(innocentEmail)).isTrue();
   }
 
-  // --- TESTS DE REGISTRO (Límite: 3) ---
-
   @Test
-  @DisplayName("Registro: Permite exactamente 3 intentos antes de bloquear")
+  @DisplayName("Register: Allows exactly 3 attempts before blocking")
   void shouldAllowThreeRegisterAttemptsAndBlockTheFourth() {
     String ip = "192.168.1.100";
 
     for (int i = 0; i < 3; i++) {
       boolean result = rateLimiter.tryConsumeRegister(ip);
       assertThat(result)
-          .withFailMessage("El intento de registro " + (i + 1) + " debería haber sido permitido")
+          .withFailMessage("Register attempt " + (i + 1) + " should have been allowed")
           .isTrue();
     }
 
@@ -69,7 +63,7 @@ class AuthRateLimiterTest {
   }
 
   @Test
-  @DisplayName("Registro: Aislamiento - El bloqueo de una IP no afecta a otra")
+  @DisplayName("Register: Isolation - Blocking one IP does not affect another")
   void shouldIsolateRegisterRateLimitsByIp() {
     String attackerIp = "10.0.0.5";
     String innocentIp = "10.0.0.8";

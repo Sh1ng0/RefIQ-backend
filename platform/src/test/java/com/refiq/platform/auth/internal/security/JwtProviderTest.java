@@ -1,6 +1,5 @@
 package com.refiq.platform.auth.internal.security;
 
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.refiq.platform.auth.internal.security.JwtProvider;
@@ -13,20 +12,18 @@ import org.junit.jupiter.api.Test;
 @DisplayName("JwtProvider - Unit Tests")
 class JwtProviderTest {
 
-
   private static final String SECRET = "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=";
-  private static final long EXPIRATION_MS = 900000; // 15 minutos
+  private static final long EXPIRATION_MS = 900000;
 
   private JwtProvider jwtProvider;
 
   @BeforeEach
   void setUp() {
-
     jwtProvider = new JwtProvider(SECRET, EXPIRATION_MS);
   }
 
   @Test
-  @DisplayName("Camino Feliz: Genera un token y extrae el UUID correctamente")
+  @DisplayName("Happy Path: Generates a token and extracts the UUID correctly")
   void shouldGenerateAndValidateTokenSuccessfully() {
     // GIVEN
     UUID userId = UUID.randomUUID();
@@ -42,10 +39,10 @@ class JwtProviderTest {
   }
 
   @Test
-  @DisplayName("Seguridad: Falla silenciosamente (Optional.empty) con un token malformado o basura")
+  @DisplayName("Security: Fails silently (Optional.empty) with a malformed or garbage token")
   void shouldReturnEmptyWhenTokenIsMalformed() {
     // GIVEN
-    String garbageToken = "esto.no.es.un.jwt";
+    String garbageToken = "this.is.not.a.jwt";
 
     // WHEN
     Optional<UUID> extractedId = jwtProvider.validateAndExtractUserId(garbageToken);
@@ -55,12 +52,10 @@ class JwtProviderTest {
   }
 
   @Test
-  @DisplayName("Seguridad: Falla silenciosamente si el token ha expirado")
+  @DisplayName("Security: Fails silently if the token has expired")
   void shouldReturnEmptyWhenTokenIsExpired() {
     // GIVEN
-
     JwtProvider expiredProvider = new JwtProvider(SECRET, -1000);
-
     UUID userId = UUID.randomUUID();
     String expiredToken = expiredProvider.generateToken(userId);
 
@@ -72,9 +67,9 @@ class JwtProviderTest {
   }
 
   @Test
-  @DisplayName("Seguridad: Falla silenciosamente si el token fue firmado con otra clave")
+  @DisplayName("Security: Fails silently if the token was signed with a different key")
   void shouldReturnEmptyWhenSignatureIsInvalid() {
-    // GIVEN:
+    // GIVEN
     UUID userId = UUID.randomUUID();
     String validToken = jwtProvider.generateToken(userId);
 

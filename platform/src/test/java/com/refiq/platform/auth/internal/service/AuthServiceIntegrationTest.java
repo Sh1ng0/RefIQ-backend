@@ -10,7 +10,7 @@ import com.refiq.platform.auth.api.dto.LoginResult;
 import com.refiq.platform.auth.api.dto.RegisterUserRequest;
 import com.refiq.platform.auth.api.dto.RegistrationResult;
 import com.refiq.platform.auth.internal.domain.Credential;
-import com.refiq.platform.auth.internal.repository.DbCredentialRepository; // <-- Import actualizado
+import com.refiq.platform.auth.internal.repository.DbCredentialRepository;
 import com.refiq.platform.auth.internal.security.AuthRateLimiter;
 import com.refiq.platform.auth.internal.security.JwtProvider;
 import com.refiq.platform.support.slices.BasePostgresTest;
@@ -25,7 +25,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-
 @RefiqModuleTest
 @DisplayName("Auth - Service Layer (Postgres Integration)")
 class AuthServiceIntegrationTest extends BasePostgresTest {
@@ -34,7 +33,7 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   private AuthService authService;
 
   @Autowired
-  private DbCredentialRepository credentialRepository; // <-- Actualizado
+  private DbCredentialRepository credentialRepository;
 
   @Autowired
   private PasswordEncoder passwordEncoder;
@@ -52,7 +51,7 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   }
 
   @Test
-  @DisplayName("Debe registrar un usuario, persistir credenciales y publicar evento")
+  @DisplayName("Should register a user, persist credentials, and publish a domain event")
   void shouldRegisterUserAndPersistCredentials(org.springframework.modulith.test.PublishedEvents events) {
     RegisterUserRequest request = new RegisterUserRequest("Lab Data", "dbtest@refiq.com", "Password123!");
     String ipAddress = "192.168.1.100";
@@ -63,7 +62,6 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
 
     Optional<Credential> savedCredential = credentialRepository.findByEmail("dbtest@refiq.com");
     assertThat(savedCredential).isPresent();
-    // <-- Actualizado a accesor de record
     assertThat(passwordEncoder.matches("Password123!", savedCredential.get().passwordHash())).isTrue();
 
     var publishedEvents = events.ofType(com.refiq.platform.auth.api.event.UserRegisteredEvent.class);
@@ -72,18 +70,16 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
     var event = publishedEvents.iterator().next();
     assertThat(event.contactEmail()).isEqualTo("dbtest@refiq.com");
     assertThat(event.userName()).isEqualTo("Lab Data");
-    // <-- Actualizado a accesor de record
     assertThat(event.accountId()).isEqualTo(savedCredential.get().id());
   }
 
   @Test
-  @DisplayName("Debe devolver EmailAlreadyExists si el correo ya está en base de datos")
+  @DisplayName("Should return EmailAlreadyExists if the email is already in the database")
   void shouldReturnEmailAlreadyExists() {
-    // <-- Actualizado a constructor de Record e insert()
-    Credential existingUser = new Credential(UUID.randomUUID(), "duplicado@refiq.com", passwordEncoder.encode("oldPassword!"), Instant.now());
+    Credential existingUser = new Credential(UUID.randomUUID(), "duplicate@refiq.com", passwordEncoder.encode("oldPassword!"), Instant.now());
     credentialRepository.insert(existingUser);
 
-    RegisterUserRequest request = new RegisterUserRequest("Lab Nuevo", "duplicado@refiq.com", "newPassword!");
+    RegisterUserRequest request = new RegisterUserRequest("New Lab", "duplicate@refiq.com", "newPassword!");
 
     RegistrationResult result = authService.register(request, "127.0.0.1");
 
@@ -91,7 +87,7 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   }
 
   @Test
-  @DisplayName("Debe bloquear el registro si el Rate Limiter lo indica")
+  @DisplayName("Should block registration if the rate limiter threshold is exceeded")
   void shouldBlockRegistrationOnRateLimitExceeded() {
     when(authRateLimiter.tryConsumeRegister("10.0.0.1")).thenReturn(false);
     RegisterUserRequest request = new RegisterUserRequest("Spam", "spam@refiq.com", "Pass123!");
@@ -103,9 +99,8 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   }
 
   @Test
-  @DisplayName("Debe autenticar correctamente con credenciales válidas")
+  @DisplayName("Should authenticate correctly with valid credentials")
   void shouldLoginSuccessfully() {
-    // <-- Actualizado a constructor de Record e insert()
     Credential user = new Credential(UUID.randomUUID(), "login@refiq.com", passwordEncoder.encode("CorrectPass123!"), Instant.now());
     credentialRepository.insert(user);
 
@@ -121,9 +116,8 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   }
 
   @Test
-  @DisplayName("Debe devolver InvalidCredentials si la contraseña no coincide")
+  @DisplayName("Should return InvalidCredentials if the password does not match")
   void shouldReturnInvalidCredentialsOnWrongPassword() {
-    // <-- Actualizado a constructor de Record e insert()
     Credential user = new Credential(UUID.randomUUID(), "secure@refiq.com", passwordEncoder.encode("RealPassword!"), Instant.now());
     credentialRepository.insert(user);
 

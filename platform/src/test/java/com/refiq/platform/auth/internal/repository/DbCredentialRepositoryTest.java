@@ -14,8 +14,8 @@ import org.springframework.boot.test.autoconfigure.jooq.JooqTest;
 import org.springframework.context.annotation.Import;
 
 /**
- * Pruebas de integración puras para la persistencia DOP usando Testcontainers. Se apoya en
- * BasePostgresTest para heredar el Singleton de PostgreSQL.
+ * Pure integration tests for DOP persistence using Testcontainers.
+ * Relies on BasePostgresTest to inherit the PostgreSQL Singleton.
  */
 @JooqTest
 @Import(DbCredentialRepository.class)
@@ -26,10 +26,10 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
   private DbCredentialRepository credentialRepository;
 
   @Test
-  @DisplayName("Debe insertar una credencial inmutable y recuperarla con precisión")
+  @DisplayName("Should insert an immutable credential and retrieve it accurately")
   void shouldInsertAndFindCredential() {
     // GIVEN
-    Credential newCredential = Credential.createNew("test@refiq.com", "hash_seguro");
+    Credential newCredential = Credential.createNew("test@refiq.com", "secure_hash");
 
     // WHEN
     credentialRepository.insert(newCredential);
@@ -41,14 +41,14 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
     Credential found = foundOpt.get();
     assertThat(found.id()).isEqualTo(newCredential.id());
     assertThat(found.email()).isEqualTo("test@refiq.com");
-    assertThat(found.passwordHash()).isEqualTo("hash_seguro");
+    assertThat(found.passwordHash()).isEqualTo("secure_hash");
 
     assertThat(found.createdAt().truncatedTo(ChronoUnit.MICROS))
         .isEqualTo(newCredential.createdAt().truncatedTo(ChronoUnit.MICROS));
   }
 
   @Test
-  @DisplayName("existsByEmail debe devolver true si existe, false si no")
+  @DisplayName("existsByEmail should return true if it exists, false otherwise")
   void shouldReturnExistsCorrectly() {
     // GIVEN
     Credential credential = Credential.createNew("exists@refiq.com", "hash");
@@ -56,11 +56,11 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
 
     // WHEN / THEN
     assertThat(credentialRepository.existsByEmail("exists@refiq.com")).isTrue();
-    assertThat(credentialRepository.existsByEmail("fantasma@refiq.com")).isFalse();
+    assertThat(credentialRepository.existsByEmail("phantom@refiq.com")).isFalse();
   }
 
   @Test
-  @DisplayName("updatePassword debe alterar únicamente el hash y mantener la inmutabilidad de otros campos")
+  @DisplayName("updatePassword should only alter the hash and maintain immutability of other fields")
   void shouldUpdatePassword() {
     // GIVEN
     Credential original = Credential.createNew("update@refiq.com", "old_hash");
@@ -77,8 +77,8 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
 
     Credential fromDb = foundOpt.get();
     assertThat(fromDb.passwordHash()).isEqualTo("new_hash");
-    assertThat(fromDb.id()).isEqualTo(original.id()); // El ID no cambia
+    assertThat(fromDb.id()).isEqualTo(original.id());
     assertThat(fromDb.createdAt().truncatedTo(ChronoUnit.MICROS))
-        .isEqualTo(original.createdAt().truncatedTo(ChronoUnit.MICROS)); // La fecha no cambia
+        .isEqualTo(original.createdAt().truncatedTo(ChronoUnit.MICROS));
   }
 }

@@ -28,23 +28,18 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @DisplayName("Auth - Web Layer (Isolated)")
 class AuthControllerWebTest extends BaseWebWithAuthTest {
 
-
   @MockitoBean
   private AuthService authService;
 
-
-
   @Test
-  @DisplayName("Registro exitoso: Devuelve 200 OK y mapea RegistrationResult.Success")
+  @DisplayName("Successful registration: Returns 200 OK and maps RegistrationResult.Success")
   void shouldReturn200OnSuccessfulRegistration() throws Exception {
-
     // GIVEN
     RegisterUserRequest request = new RegisterUserRequest("Lab Central", "test@refiq.com", "SuperPassword123!");
 
-
     when(authService.register(any(RegisterUserRequest.class), anyString()))
         .thenReturn(new RegistrationResult.Success(
-            new RegistrationResponse("Usuario registrado correctamente", UUID.randomUUID().toString())
+            new RegistrationResponse("User successfully registered", UUID.randomUUID().toString())
         ));
 
     // WHEN & THEN
@@ -56,13 +51,11 @@ class AuthControllerWebTest extends BaseWebWithAuthTest {
         .andExpect(jsonPath("$.data.userId").exists());
   }
 
-
   @Test
-  @DisplayName("Registro fallido: Devuelve 409 Conflict si el email existe (RegistrationResult.EmailAlreadyExists)")
+  @DisplayName("Failed registration: Returns 409 Conflict if email exists (RegistrationResult.EmailAlreadyExists)")
   void shouldReturn409WhenEmailAlreadyExists() throws Exception {
     // GIVEN
-    RegisterUserRequest request = new RegisterUserRequest("Lab Duplicado", "dup@refiq.com", "SuperPassword123!");
-
+    RegisterUserRequest request = new RegisterUserRequest("Duplicate Lab", "dup@refiq.com", "SuperPassword123!");
 
     when(authService.register(any(RegisterUserRequest.class), anyString()))
         .thenReturn(new RegistrationResult.EmailAlreadyExists("dup@refiq.com"));
@@ -72,17 +65,14 @@ class AuthControllerWebTest extends BaseWebWithAuthTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.error.error").value("El email dup@refiq.com ya está registrado."));
+        .andExpect(jsonPath("$.error.error").value("The email dup@refiq.com is already registered."));
   }
 
-
-
   @Test
-  @DisplayName("Login fallido: Devuelve 401 Unauthorized para credenciales inválidas (LoginResult.InvalidCredentials)")
+  @DisplayName("Failed login: Returns 401 Unauthorized for invalid credentials (LoginResult.InvalidCredentials)")
   void shouldReturn401OnBadCredentials() throws Exception {
     // GIVEN
     LoginRequest request = new LoginRequest("test@refiq.com", "WrongPassword!");
-
 
     when(authService.login(any(LoginRequest.class)))
         .thenReturn(new LoginResult.InvalidCredentials());
@@ -96,7 +86,7 @@ class AuthControllerWebTest extends BaseWebWithAuthTest {
   }
 
   @Test
-  @DisplayName("Validación fallida: Devuelve 400 Bad Request si la contraseña es débil")
+  @DisplayName("Failed validation: Returns 400 Bad Request if password is weak")
   void shouldReturn400OnWeakPassword() throws Exception {
     // GIVEN
     RegisterUserRequest weakRequest = new RegisterUserRequest("Lab", "test@refiq.com", "weakpass123");
@@ -108,15 +98,14 @@ class AuthControllerWebTest extends BaseWebWithAuthTest {
         .andExpect(status().isBadRequest());
   }
 
-
   @Test
-  @DisplayName("Registro fallido: Devuelve 429 Too Many Requests si el servicio bloquea (TooManyRequests)")
+  @DisplayName("Failed registration: Returns 429 Too Many Requests if service blocks (TooManyRequests)")
   void shouldReturn429WhenRegisterRateLimitExceeded() throws Exception {
     // GIVEN
     RegisterUserRequest request = new RegisterUserRequest("Spam", "spam@refiq.com", "SuperPassword123!");
 
     when(authService.register(any(RegisterUserRequest.class), anyString()))
-        .thenReturn(new RegistrationResult.TooManyRequests("Demasiados intentos de registro."));
+        .thenReturn(new RegistrationResult.TooManyRequests("Too many registration attempts."));
 
     // WHEN & THEN
     mockMvc.perform(post("/api/register")
@@ -127,14 +116,13 @@ class AuthControllerWebTest extends BaseWebWithAuthTest {
   }
 
   @Test
-  @DisplayName("Login fallido: Devuelve 429 Too Many Requests si el servicio bloquea por fuerza bruta (TooManyRequests)")
+  @DisplayName("Failed login: Returns 429 Too Many Requests if service blocks due to brute force (TooManyRequests)")
   void shouldReturn429WhenLoginRateLimitExceeded() throws Exception {
     // GIVEN
     LoginRequest request = new LoginRequest("hacker@refiq.com", "WrongPassword!");
 
-
     when(authService.login(any(LoginRequest.class)))
-        .thenReturn(new LoginResult.TooManyRequests("Demasiados intentos fallidos."));
+        .thenReturn(new LoginResult.TooManyRequests("Too many failed attempts."));
 
     // WHEN & THEN
     mockMvc.perform(post("/api/login")

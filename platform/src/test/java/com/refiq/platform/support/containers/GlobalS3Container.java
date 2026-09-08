@@ -1,12 +1,15 @@
 package com.refiq.platform.support.containers;
 
-
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Patrón Singleton (Bloch Enum) para garantizar que LocalStack se levanta UNA SOLA VEZ por cada
- * ejecución de la suite completa de tests de Ingestión.
+ * Implements the Singleton pattern (Bloch Enum) to ensure LocalStack is started ONLY ONCE
+ * per execution of the entire test suite.
+ * <p>
+ * This significantly reduces test execution time by sharing the same S3 container context
+ * across multiple integration tests, simulating the Data Lake environment.
+ * </p>
  */
 public enum GlobalS3Container {
 
@@ -17,7 +20,6 @@ public enum GlobalS3Container {
   public static final String TEST_BUCKET = "refiq-test-bucket";
 
   GlobalS3Container() {
-
     container = new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0.2"))
         .withServices(LocalStackContainer.Service.S3);
 
@@ -26,7 +28,7 @@ public enum GlobalS3Container {
     try {
       container.execInContainer("awslocal", "s3", "mb", "s3://" + TEST_BUCKET);
     } catch (Exception e) {
-      throw new RuntimeException("Fallo al inicializar el bucket de S3 en LocalStack", e);
+      throw new RuntimeException("Failed to initialize the S3 bucket in LocalStack", e);
     }
   }
 
