@@ -8,7 +8,7 @@ services:
     container_name: refiq-app
     ports:
       - "8080:8080"
-    # ¡Aquí está la magia! Le decimos que chupe todas las variables del archivo .env
+    # Injects all environment variables from the .env file
     env_file:
       - .env
     depends_on:
@@ -22,7 +22,7 @@ services:
     ports:
       - "5432:5432"
     environment:
-      # Mapeamos las variables del .env a las que necesita la imagen oficial de Postgres
+      # Maps .env variables to the official Postgres image requirements
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
@@ -36,7 +36,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      # Mapeamos las variables del .env a las de MinIO
+      # Maps .env variables to MinIO requirements
       - MINIO_ROOT_USER=${MINIO_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
     command: server /data --console-address ":9001"

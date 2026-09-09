@@ -1,65 +1,42 @@
-HELP.md
+# --- Build & Maven ---
 target/
-.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+# --- Archivos del OS ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-### IntelliJ IDEA ###
-.idea
+# --- IntelliJ IDEA ---
+.idea/
 *.iws
 *.iml
 *.ipr
+out/
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
-.vscode/
-
-### OS Junk (Windows/Mac) ###
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-### Logs ###
+# --- Logs & Datos Locales ---
 *.log
 logs/
+*.hprof
+.dbeaver/
+.datagrip/
+data-sources.xml
 
-### Security & Local Config ###
+# --- Seguridad & Entornos Locales ---
+.env
 *.env
-.env
-.env
 *.key
 *.p12
 *.jks
 application-secret.properties
 application-local.properties
 *-local.properties
-# Memory dump
-*.hprof
+*local.yml
+docker-compose.local.yml
 
-### IDE & DB Tools Config ###
-.dbeaver/
-.datagrip/
-data-sources.xml
-
-### Study / Local scratch files ###
+# --- Archivos temporales de estudio ---
 api_plumberForDummies.R
-
-
+HELP.md

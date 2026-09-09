@@ -13,9 +13,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Esqueleto base para tests de controladores (WebMvcTest) que requieren el contexto de seguridad
- * completo. Carga MockMvc, levanta los filtros reales de Spring Security pero mockea el proveedor
- * criptográfico para evitar sobrecarga.
+ * Acts as a base skeleton for controller tests (WebMvcTest) that require the complete security context.
+ * <p>
+ * Configures MockMvc and sets up the real Spring Security filters while mocking the
+ * cryptographic provider to avoid processing overhead during tests.
+ * </p>
  */
 @ActiveProfiles({"test", "security"})
 @Import({
@@ -24,11 +26,8 @@ import org.springframework.test.web.servlet.MockMvc;
     WebhookApiKeyFilter.class
 })
 @TestPropertySource(properties = {
-
     "refiq.security.cors.allowed-origins=*",
-
     "refiq.webhooks.minio.api-key=test-webhook-key",
-
     "refiq.security.jwt.secret=MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=",
     "refiq.security.jwt.expiration-ms=900000"
 })
@@ -42,5 +41,4 @@ public abstract class BaseWebWithAuthTest {
 
   @MockitoBean
   protected JwtProvider jwtProvider;
-
 }

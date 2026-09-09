@@ -44,44 +44,39 @@ class UserServiceIntegrationTest extends BasePostgresTest {
   void cleanUp() {
     dsl.deleteFrom(REFIQ_USER_PROFILES).execute();
     dsl.deleteFrom(REFIQ_CREDENTIALS).execute();
-    // Vaciamos el outbox de Modulith para evitar reintentos fantasma
     dsl.execute("TRUNCATE TABLE event_publication");
   }
 
   @Test
-  @DisplayName("Event Listener: Debe crear el perfil de forma asíncrona al recibir UserRegisteredEvent")
+  @DisplayName("Event Listener: Should create the profile asynchronously upon receiving UserRegisteredEvent")
   void shouldCreateProfileAsynchronously(Scenario scenario) {
     // GIVEN
     UUID accountId = UUID.randomUUID();
-
-    // 1. Insertamos la credencial pre-requisito
     insertDummyCredential(accountId, "bio@test.com");
 
-    var event = new UserRegisteredEvent(accountId, "Laboratorio BioTest", "bio@test.com");
+    var event = new UserRegisteredEvent(accountId, "BioTest Laboratory", "bio@test.com");
 
     // WHEN & THEN
     scenario.publish(event)
         .andWaitForStateChange(() -> userProfileRepository.findById(accountId).orElse(null))
         .andVerify(savedProfile -> {
           assertThat(savedProfile).isNotNull();
-          assertThat(savedProfile.name()).isEqualTo("Laboratorio BioTest");
+          assertThat(savedProfile.name()).isEqualTo("BioTest Laboratory");
           assertThat(savedProfile.contactEmail()).isEqualTo("bio@test.com");
         });
   }
 
   @Test
-  @DisplayName("getProfile: Debe recuperar el DTO correcto desde Postgres")
+  @DisplayName("getProfile: Should retrieve the correct DTO from Postgres")
   void shouldRetrieveProfileProperly() {
     // GIVEN
     UUID accountId = UUID.randomUUID();
-
-    // 1. Insertamos la credencial pre-requisito
-    insertDummyCredential(accountId, "sur@test.com");
+    insertDummyCredential(accountId, "south@test.com");
 
     UserProfile profile = new UserProfile(
         accountId,
-        "Lab Sur",
-        "sur@test.com",
+        "South Lab",
+        "south@test.com",
         Instant.now()
     );
 
@@ -92,14 +87,17 @@ class UserServiceIntegrationTest extends BasePostgresTest {
 
     // THEN
     assertThat(response).isPresent();
-    assertThat(response.get().name()).isEqualTo("Lab Sur");
-    assertThat(response.get().contactEmail()).isEqualTo("sur@test.com");
+    assertThat(response.get().name()).isEqualTo("South Lab");
+    assertThat(response.get().contactEmail()).isEqualTo("south@test.com");
     assertThat(response.get().joinedAt()).isNotNull();
   }
 
   /**
-   * Helper para inyectar infraestructura bruta.
-   * Al no tener @Transactional en la clase, esto hace commit instantáneo y natural.
+   * Helper to inject raw infrastructure.
+   * <p>
+   * Since the class lacks @Transactional, this performs an instantaneous and natural commit,
+   * avoiding ghost data scenarios between threads.
+   * </p>
    */
   private void insertDummyCredential(UUID id, String email) {
     dsl.insertInto(REFIQ_CREDENTIALS)

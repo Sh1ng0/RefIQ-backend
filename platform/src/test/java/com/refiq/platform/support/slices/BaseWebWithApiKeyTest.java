@@ -13,15 +13,16 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Esqueleto base para tests de Webhooks protegidos por API Key.
- * Apaga la seguridad JWT estándar de Spring y carga únicamente el filtro
- * de validación de tokens de MinIO.
+ * Defines a base skeleton for Webhook tests protected by an API Key.
+ * <p>
+ * Disables standard Spring JWT security and exclusively loads the
+ * MinIO token validation filter.
+ * </p>
  */
 @ActiveProfiles("test")
 @ImportAutoConfiguration(exclude = {SecurityAutoConfiguration.class})
 @Import(WebhookApiKeyFilter.class)
 @TestPropertySource(properties = {
-
     "refiq.webhooks.minio.api-key=test-webhook-key"
 })
 public abstract class BaseWebWithApiKeyTest {
@@ -35,7 +36,6 @@ public abstract class BaseWebWithApiKeyTest {
   @MockitoBean
   protected JwtProvider jwtProvider;
 
-  // Constantes para que los tests hijos las usen fácilmente
   protected static final String WEBHOOK_TOKEN_HEADER = "X-RefIQ-Webhook-Token";
   protected static final String VALID_API_KEY = "test-webhook-key";
 }

@@ -1,7 +1,5 @@
 package com.refiq.platform.user.api.web;
 
-
-
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -29,30 +27,29 @@ class UserControllerWebTest extends BaseWebWithAuthTest {
   private UserService userService;
 
   @Test
-  @DisplayName("Debe devolver 200 OK con los datos del perfil si existe")
+  @DisplayName("Should return 200 OK with profile data if it exists")
   void shouldReturn200AndProfileData() throws Exception {
     // GIVEN
     UUID myUserId = UUID.randomUUID();
     UserProfileResponse mockedResponse = new UserProfileResponse(
-        myUserId, "Hospital Norte", "norte@refiq.com", Instant.now()
+        myUserId, "North Hospital", "north@refiq.com", Instant.now()
     );
 
     when(userService.getProfile(myUserId)).thenReturn(Optional.of(mockedResponse));
-
 
     var authPrincipal = new UsernamePasswordAuthenticationToken(myUserId, null, Collections.emptyList());
 
     // WHEN & THEN
     mockMvc.perform(get("/api/users/profile")
-            .with(authentication(authPrincipal))) // Inyectamos la identidad
+            .with(authentication(authPrincipal)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(myUserId.toString()))
-        .andExpect(jsonPath("$.name").value("Hospital Norte"))
-        .andExpect(jsonPath("$.contactEmail").value("norte@refiq.com"));
+        .andExpect(jsonPath("$.name").value("North Hospital"))
+        .andExpect(jsonPath("$.contactEmail").value("north@refiq.com"));
   }
 
   @Test
-  @DisplayName("Debe devolver 404 Not Found si el perfil no existe")
+  @DisplayName("Should return 404 Not Found if the profile is missing")
   void shouldReturn404WhenProfileIsMissing() throws Exception {
     // GIVEN
     UUID ghostUserId = UUID.randomUUID();

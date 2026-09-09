@@ -6,8 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: refiq-app
-    # No exponemos el 8080 al mundo, solo a la red interna de Docker.
-    # Nginx se encargará de hablar con ella.
+    # Do not expose port 8080 to the host network; Nginx will act as the reverse proxy
     env_file:
       - .env
     depends_on:
@@ -45,14 +44,14 @@ services:
     container_name: refiq-engine
     restart: always
 
-  # --- EL PORTERO (Nginx Proxy Manager) ---
+  # --- REVERSE PROXY (Nginx Proxy Manager) ---
   nginx-proxy:
     image: 'jc21/nginx-proxy-manager:latest'
     container_name: refiq-proxy
     ports:
-      - '80:80'   # Tráfico HTTP
-      - '81:81'   # Panel de control de Nginx
-      - '443:443' # Tráfico HTTPS
+      - '80:80'   # HTTP Traffic
+      - '81:81'   # Nginx Admin Panel
+      - '443:443' # HTTPS Traffic
     volumes:
       - ./nginx/data:/data
       - ./nginx/letsencrypt:/etc/letsencrypt
@@ -61,7 +60,6 @@ services:
 volumes:
   postgres_prod_data:
   minio_prod_data:
-
 
 networks:
   default:
