@@ -1,60 +1,43 @@
-HELP.md
+# --- Build & Maven ---
 target/
-.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+# --- Archivos del OS ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-### IntelliJ IDEA ###
-.idea
+# --- IntelliJ IDEA ---
+.idea/
 *.iws
 *.iml
 *.ipr
+out/
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
-.vscode/
-
-### OS Junk (Windows/Mac) ###
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-### Logs ###
+# --- Logs & Datos Locales ---
 *.log
 logs/
-
-### Security & Local Config ###
-.env
-.env.*
-*.key
-*.p12
-*.jks
-*.env
-application-secret.properties
-application-local.properties
-*-local.properties
-# Memory dump
 *.hprof
-
-### IDE & DB Tools Config ###
 .dbeaver/
 .datagrip/
 data-sources.xml
+
+# --- Seguridad & Entornos Locales ---
+.env
+*.env
+*.key
+*.p12
+*.jks
+application-secret.properties
+application-local.properties
+*-local.properties
+*local.yml
+docker-compose.local.yml
+docker-compose.override.yml
+
+# --- Archivos temporales de estudio ---
+api_plumberForDummies.R
+HELP.md
