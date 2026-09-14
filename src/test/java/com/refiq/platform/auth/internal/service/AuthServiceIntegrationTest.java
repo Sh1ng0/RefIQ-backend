@@ -5,10 +5,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.refiq.platform.auth.api.dto.LoginRequest;
-import com.refiq.platform.auth.api.dto.LoginResult;
-import com.refiq.platform.auth.api.dto.RegisterUserRequest;
-import com.refiq.platform.auth.api.dto.RegistrationResult;
+import com.refiq.platform.auth.api.dto.login.LoginRequest;
+import com.refiq.platform.auth.api.dto.login.LoginResult;
+import com.refiq.platform.auth.api.dto.registration.RegisterUserRequest;
+import com.refiq.platform.auth.api.dto.registration.RegistrationResult;
 import com.refiq.platform.auth.internal.domain.Credential;
 import com.refiq.platform.auth.internal.repository.DbCredentialRepository;
 import com.refiq.platform.auth.internal.security.AuthRateLimiter;

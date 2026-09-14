@@ -1,14 +1,15 @@
 package com.refiq.platform.auth.internal.service;
 
-import com.refiq.platform.auth.api.dto.LoginRequest;
-import com.refiq.platform.auth.api.dto.LoginResponse;
-import com.refiq.platform.auth.api.dto.LoginResult;
-import com.refiq.platform.auth.api.dto.RegisterUserRequest;
-import com.refiq.platform.auth.api.dto.RegistrationResponse;
-import com.refiq.platform.auth.api.dto.RegistrationResult;
+import com.refiq.platform.auth.api.dto.login.LoginRequest;
+import com.refiq.platform.auth.api.dto.login.LoginResponse;
+import com.refiq.platform.auth.api.dto.login.LoginResult;
+import com.refiq.platform.auth.api.dto.registration.RegisterUserRequest;
+import com.refiq.platform.auth.api.dto.registration.RegistrationResponse;
+import com.refiq.platform.auth.api.dto.registration.RegistrationResult;
 import com.refiq.platform.auth.api.event.UserRegisteredEvent;
 import com.refiq.platform.auth.internal.domain.Credential;
-import com.refiq.platform.auth.internal.repository.DbCredentialRepository; // Nuestro nuevo repo
+import com.refiq.platform.auth.internal.logging.AuthLogEvent;
+import com.refiq.platform.auth.internal.repository.DbCredentialRepository;
 import com.refiq.platform.auth.internal.security.JwtProvider;
 import com.refiq.platform.auth.internal.security.AuthRateLimiter;
 import java.util.UUID;
@@ -49,19 +50,19 @@ public class AuthService {
 
   @Transactional
   public RegistrationResult register(RegisterUserRequest request, String ipAddress) {
-    AuthLogEvent.PROCESSING_REGISTRATION_REQUEST.log(log, request.email(), ipAddress);
+    new AuthLogEvent.ProcessingRegistrationRequest(request.email(), ipAddress).log(log);
+
     if (!authRateLimiter.tryConsumeRegister(ipAddress)) {
-      AuthLogEvent.REGISTRATION_BLOCKED_RATE_LIMIT.log(log, ipAddress);
+      new AuthLogEvent.RegistrationBlockedRateLimit(ipAddress).log(log);
       return new RegistrationResult.TooManyRequests(
           "Demasiados intentos de registro desde tu red. Por favor, espera una hora."
       );
     }
 
     if (credentialRepository.existsByEmail(request.email())) {
-      AuthLogEvent.REGISTRATION_FAILED_EMAIL_EXISTS.log(log, request.email());
+      new AuthLogEvent.RegistrationFailedEmailExists(request.email()).log(log);
       return new RegistrationResult.EmailAlreadyExists(request.email());
     }
-
 
     var newCredential = Credential.createNew(
         request.email(),
@@ -77,7 +78,7 @@ public class AuthService {
         newCredential.email()
     ));
 
-    AuthLogEvent.USER_REGISTERED.log(log, newCredential.email(), newCredential.id());
+    new AuthLogEvent.UserRegistered(newCredential.email(), newCredential.id()).log(log);
 
     return new RegistrationResult.Success(
         new RegistrationResponse("Usuario registrado correctamente", newCredential.id().toString())
@@ -86,35 +87,34 @@ public class AuthService {
 
   @Transactional(readOnly = true)
   public LoginResult login(LoginRequest request) {
-    AuthLogEvent.PROCESSING_LOGIN_REQUEST.log(log, request.email());
+    new AuthLogEvent.ProcessingLoginRequest(request.email()).log(log);
 
     if (!authRateLimiter.tryConsumeLogin(request.email())) {
-      AuthLogEvent.LOGIN_BLOCKED_RATE_LIMIT.log(log, request.email());
+      new AuthLogEvent.LoginBlockedRateLimit(request.email()).log(log);
       return new LoginResult.TooManyRequests(
           "Demasiados intentos fallidos. Por favor, espera 15 minutos.");
     }
 
     var credentialOpt = credentialRepository.findByEmail(request.email());
     if (credentialOpt.isEmpty()) {
-      AuthLogEvent.LOGIN_FAILED_INVALID_CREDENTIALS.log(log, request.email());
+      new AuthLogEvent.LoginFailedInvalidCredentials(request.email()).log(log);
       return new LoginResult.InvalidCredentials();
     }
 
     var credential = credentialOpt.get();
 
-
     if (!passwordEncoder.matches(request.password(), credential.passwordHash())) {
-      AuthLogEvent.LOGIN_FAILED_INVALID_CREDENTIALS.log(log, request.email());
+      new AuthLogEvent.LoginFailedInvalidCredentials(request.email()).log(log);
       return new LoginResult.InvalidCredentials();
     }
 
     String token = jwtProvider.generateToken(credential.id());
 
-    AuthLogEvent.LOGIN_SUCCESS.log(log, credential.id());
+    new AuthLogEvent.LoginSuccess(credential.id()).log(log);
     return new LoginResult.Success(new LoginResponse(token));
   }
 
   public void logout(UUID userId) {
-    AuthLogEvent.LOGOUT_SUCCESS.log(log, userId);
+    new AuthLogEvent.LogoutSuccess(userId).log(log);
   }
 }

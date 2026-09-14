@@ -1,6 +1,6 @@
 package com.refiq.platform.auth.api.web.response;
 
-import com.refiq.platform.auth.api.dto.LoginResponse;
+import com.refiq.platform.auth.api.dto.login.LoginResponse;
 import com.refiq.platform.shared.web.ApiError;
 
 /**

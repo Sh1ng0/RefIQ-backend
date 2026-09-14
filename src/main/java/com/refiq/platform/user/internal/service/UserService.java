@@ -3,6 +3,7 @@ package com.refiq.platform.user.internal.service;
 import com.refiq.platform.auth.api.event.UserRegisteredEvent;
 import com.refiq.platform.user.api.dto.UserProfileResponse;
 import com.refiq.platform.user.internal.domain.UserProfile;
+import com.refiq.platform.user.internal.logging.UserLogEvent;
 import com.refiq.platform.user.internal.repository.DbUserProfileRepository;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,7 +47,7 @@ public class UserService {
 
     profileRepository.insert(newProfile);
 
-    UserLogEvent.PROFILE_CREATED.log(log, newProfile.id(), newProfile.name());
+    new UserLogEvent.ProfileCreated(newProfile.id(), newProfile.name()).log(log);
   }
 
   /**
@@ -59,7 +60,7 @@ public class UserService {
   public Optional<UserProfileResponse> getProfile(UUID userId) {
     return profileRepository.findById(userId)
         .map(profile -> {
-          UserLogEvent.PROFILE_RETRIEVED.log(log, profile.id());
+          new UserLogEvent.ProfileRetrieved(profile.id()).log(log);
           return new UserProfileResponse(
               profile.id(),
               profile.name(),
@@ -68,7 +69,7 @@ public class UserService {
           );
         })
         .or(() -> {
-          UserLogEvent.PROFILE_NOT_FOUND.log(log, userId);
+          new UserLogEvent.ProfileNotFound(userId).log(log);
           return Optional.empty();
         });
   }

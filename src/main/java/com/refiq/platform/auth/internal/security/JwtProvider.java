@@ -1,9 +1,6 @@
 package com.refiq.platform.auth.internal.security;
 
-
-
-
-import com.refiq.platform.auth.internal.service.AuthLogEvent;
+import com.refiq.platform.auth.internal.logging.AuthLogEvent; // <-- Actualizado al nuevo paquete transversal
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -13,10 +10,8 @@ import javax.crypto.SecretKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import java.util.UUID;
-
 
 /**
  * Cryptographic component responsible for the issuance and validation of JSON Web Tokens (JWT).
@@ -32,7 +27,6 @@ import java.util.UUID;
  * </p>
  */
 @Component
-
 public class JwtProvider {
 
   private static final Logger log = LoggerFactory.getLogger(JwtProvider.class);
@@ -49,8 +43,7 @@ public class JwtProvider {
     this.expirationMs = expirationMs;
   }
 
-
-  public String generateToken(UUID userId ) {
+  public String generateToken(UUID userId) {
 
     Date now = new Date();
     Date expiryDate = new Date(now.getTime() + expirationMs);
@@ -63,7 +56,6 @@ public class JwtProvider {
         .compact();
   }
 
-
   public Optional<UUID> validateAndExtractUserId(String token) {
     try {
       String subject = Jwts.parser()
@@ -75,10 +67,9 @@ public class JwtProvider {
 
       return Optional.of(UUID.fromString(subject));
     } catch (Exception e) {
-      AuthLogEvent.JWT_VALIDATION_FAILED.log(log, e.getMessage());
+
+      new AuthLogEvent.JwtValidationFailed(e.getMessage()).log(log);
       return Optional.empty();
     }
   }
-
-
 }

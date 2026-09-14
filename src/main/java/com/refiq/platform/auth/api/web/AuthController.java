@@ -1,9 +1,9 @@
 package com.refiq.platform.auth.api.web;
 
-import com.refiq.platform.auth.api.dto.LoginRequest;
-import com.refiq.platform.auth.api.dto.LoginResult;
-import com.refiq.platform.auth.api.dto.RegisterUserRequest;
-import com.refiq.platform.auth.api.dto.RegistrationResult;
+import com.refiq.platform.auth.api.dto.login.LoginRequest;
+import com.refiq.platform.auth.api.dto.login.LoginResult;
+import com.refiq.platform.auth.api.dto.registration.RegisterUserRequest;
+import com.refiq.platform.auth.api.dto.registration.RegistrationResult;
 import com.refiq.platform.auth.api.web.response.LoginWebResponse;
 import com.refiq.platform.auth.api.web.response.RegistrationWebResponse;
 import com.refiq.platform.auth.internal.service.AuthService;

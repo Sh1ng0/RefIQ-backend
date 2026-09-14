@@ -1,4 +1,4 @@
-package com.refiq.platform.auth.api.dto;
+package com.refiq.platform.auth.api.dto.login;
 
 /**
  * Represents the exhaustive set of possible outcomes for a login operation.
