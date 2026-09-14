@@ -55,23 +55,26 @@ public class AuthService {
     if (!authRateLimiter.tryConsumeRegister(ipAddress)) {
       new AuthLogEvent.RegistrationBlockedRateLimit(ipAddress).log(log);
       return new RegistrationResult.TooManyRequests(
-          "Demasiados intentos de registro desde tu red. Por favor, espera una hora."
+          "Too many registration attempts from your network. Please wait an hour."
       );
     }
 
-    if (credentialRepository.existsByEmail(request.email())) {
-      new AuthLogEvent.RegistrationFailedEmailExists(request.email()).log(log);
-      return new RegistrationResult.EmailAlreadyExists(request.email());
-    }
-
+    // 1. Prepare the domain entity blindly (no pre-checks)
     var newCredential = Credential.createNew(
         request.email(),
         passwordEncoder.encode(request.password())
     );
 
-    credentialRepository.insert(newCredential);
+    // 2. Attempt atomic insertion delegating the UNIQUE constraint to the database
+    boolean isInserted = credentialRepository.tryInsert(newCredential);
 
-    // EVENT STUFF
+    // 3. Evaluate the result to maintain the sealed interface contract
+    if (!isInserted) {
+      new AuthLogEvent.RegistrationFailedEmailExists(request.email()).log(log);
+      return new RegistrationResult.EmailAlreadyExists(request.email());
+    }
+
+    // EVENT PUBLICATION
     eventPublisher.publishEvent(new UserRegisteredEvent(
         newCredential.id(),
         request.name(),
@@ -81,7 +84,7 @@ public class AuthService {
     new AuthLogEvent.UserRegistered(newCredential.email(), newCredential.id()).log(log);
 
     return new RegistrationResult.Success(
-        new RegistrationResponse("Usuario registrado correctamente", newCredential.id().toString())
+        new RegistrationResponse("User registered successfully", newCredential.id().toString())
     );
   }
 

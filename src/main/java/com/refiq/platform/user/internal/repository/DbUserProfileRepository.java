@@ -27,10 +27,11 @@ public class DbUserProfileRepository {
   }
 
   /**
-   * Inserts a new user profile into the system.
+   * Idempotently inserts a new user profile into the system.
    * <p>
-   * Assumes the profile record is fully initialized with its identifier and creation timestamp,
-   * explicitly aligning the Java {@link java.time.Instant} with the database {@code TIMESTAMP WITH TIME ZONE}.
+   * Uses ON CONFLICT DO NOTHING to guarantee safe retries (at-least-once delivery)
+   * when consuming domain events. Assumes the profile record is fully initialized
+   * with its identifier and creation timestamp.
    * </p>
    */
   public void insert(UserProfile profile) {
@@ -39,13 +40,16 @@ public class DbUserProfileRepository {
         .set(REFIQ_USER_PROFILES.NAME, profile.name())
         .set(REFIQ_USER_PROFILES.CONTACT_EMAIL, profile.contactEmail())
         .set(REFIQ_USER_PROFILES.CREATED_AT, profile.createdAt().atOffset(ZoneOffset.UTC))
+        .onConflict(REFIQ_USER_PROFILES.ID)
+        .doNothing()
         .execute();
   }
 
   /**
    * Retrieves a user profile by its unique identifier.
    * <p>
-   * Delegates to jOOQ for mapping selected columns directly into the domain record's constructor.
+   * Uses explicit mapping to the domain record's constructor to ensure absolute
+   * compile-time type safety, avoiding runtime reflection blind spots.
    * </p>
    */
   public Optional<UserProfile> findById(UUID id) {
@@ -57,7 +61,12 @@ public class DbUserProfileRepository {
         )
         .from(REFIQ_USER_PROFILES)
         .where(REFIQ_USER_PROFILES.ID.eq(id))
-        .fetchOptionalInto(UserProfile.class);
+        .fetchOptional(r -> new UserProfile(
+            r.get(REFIQ_USER_PROFILES.ID),
+            r.get(REFIQ_USER_PROFILES.NAME),
+            r.get(REFIQ_USER_PROFILES.CONTACT_EMAIL),
+            r.get(REFIQ_USER_PROFILES.CREATED_AT).toInstant()
+        ));
   }
 
   // HELPER METHODS

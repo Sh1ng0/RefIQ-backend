@@ -56,19 +56,29 @@ public class DbCredentialRepository {
   }
 
   /**
-   * Inserts a new credential fact into the system.
+   * Attempts to atomically insert a new credential fact into the system.
    * <p>
-   * Assumes the incoming record is already populated with its identifier and creation timestamp,
-   * explicitly aligning the Java Instant with the database timestamp timezone.
+   * To prevent check-then-act race conditions, this operation delegates the uniqueness
+   * constraint validation directly to the database engine. It assumes the incoming record
+   * is already fully populated with its identifier and creation timestamp, explicitly
+   * aligning the Java {@link java.time.Instant} with the database timestamp timezone.
    * </p>
+   *
+   * @param credential the immutable credential fact to be persisted.
+   * @return {@code true} if the credential was successfully inserted, or {@code false} if
+   *         a collision occurred (e.g., the email already exists).
    */
-  public void insert(Credential credential) {
-    dsl.insertInto(REFIQ_CREDENTIALS)
+  public boolean tryInsert(Credential credential) {
+    int affectedRows = dsl.insertInto(REFIQ_CREDENTIALS)
         .set(REFIQ_CREDENTIALS.ID, credential.id())
         .set(REFIQ_CREDENTIALS.EMAIL, credential.email())
         .set(REFIQ_CREDENTIALS.PASSWORD_HASH, credential.passwordHash())
         .set(REFIQ_CREDENTIALS.CREATED_AT, credential.createdAt().atOffset(ZoneOffset.UTC))
+        .onConflict(REFIQ_CREDENTIALS.EMAIL) // Requiere que la columna email tenga restricción UNIQUE
+        .doNothing()
         .execute();
+
+    return affectedRows == 1;
   }
 
   /**

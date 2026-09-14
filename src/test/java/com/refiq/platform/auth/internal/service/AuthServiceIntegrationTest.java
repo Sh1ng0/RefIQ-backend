@@ -76,11 +76,13 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   @Test
   @DisplayName("Should return EmailAlreadyExists if the email is already in the database")
   void shouldReturnEmailAlreadyExists() {
+    // Insertamos el usuario inicial usando el nuevo método tryInsert
     Credential existingUser = new Credential(UUID.randomUUID(), "duplicate@refiq.com", passwordEncoder.encode("oldPassword!"), Instant.now());
-    credentialRepository.insert(existingUser);
+    credentialRepository.tryInsert(existingUser);
 
     RegisterUserRequest request = new RegisterUserRequest("New Lab", "duplicate@refiq.com", "newPassword!");
 
+    // Esto validará la protección ON CONFLICT de jOOQ en la base de datos real
     RegistrationResult result = authService.register(request, "127.0.0.1");
 
     assertThat(result).isInstanceOf(RegistrationResult.EmailAlreadyExists.class);
@@ -102,7 +104,7 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   @DisplayName("Should authenticate correctly with valid credentials")
   void shouldLoginSuccessfully() {
     Credential user = new Credential(UUID.randomUUID(), "login@refiq.com", passwordEncoder.encode("CorrectPass123!"), Instant.now());
-    credentialRepository.insert(user);
+    credentialRepository.tryInsert(user);
 
     when(jwtProvider.generateToken(any(UUID.class))).thenReturn("mocked.jwt.token");
 
@@ -119,7 +121,7 @@ class AuthServiceIntegrationTest extends BasePostgresTest {
   @DisplayName("Should return InvalidCredentials if the password does not match")
   void shouldReturnInvalidCredentialsOnWrongPassword() {
     Credential user = new Credential(UUID.randomUUID(), "secure@refiq.com", passwordEncoder.encode("RealPassword!"), Instant.now());
-    credentialRepository.insert(user);
+    credentialRepository.tryInsert(user);
 
     LoginRequest request = new LoginRequest("secure@refiq.com", "WrongPassword!");
 
