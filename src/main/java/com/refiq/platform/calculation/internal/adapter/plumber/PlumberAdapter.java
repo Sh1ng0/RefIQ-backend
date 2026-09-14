@@ -1,15 +1,14 @@
 package com.refiq.platform.calculation.internal.adapter.plumber;
 
-import com.fasterxml.jackson.databind.JsonNode; // Required to read dynamic errors
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResponse;
+import com.refiq.platform.calculation.internal.logging.CalculationLogEvent; // <-- Nuevo import
 import com.refiq.platform.calculation.internal.port.AnalysisPort;
-import com.refiq.platform.calculation.internal.service.CalculationLogEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.client.SimpleClientHttpRequestFactory; // For basic timeouts
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
@@ -49,7 +48,7 @@ public class PlumberAdapter implements AnalysisPort {
   private final Duration presignedUrlDuration;
 
   public PlumberAdapter(
-      RestClient plumberRestClient, // Injecting the pre-configured bean directly
+      RestClient plumberRestClient,
       S3Presigner s3Presigner,
       ObjectMapper objectMapper,
       @Value("${refiq.storage.s3.bucket-name}") String bucketName,
@@ -74,7 +73,7 @@ public class PlumberAdapter implements AnalysisPort {
    */
   @Retryable(
       retryFor = { Exception.class },
-      noRetryFor = { DataInconsistencyException.class }, // <-- El reemplazo moderno de 'exclude'
+      noRetryFor = { DataInconsistencyException.class },
       maxAttempts = 3,
       backoff = @Backoff(delay = 2000, multiplier = 2)
   )
@@ -91,7 +90,8 @@ public class PlumberAdapter implements AnalysisPort {
         "test_code", safeTestCode
     );
 
-    CalculationLogEvent.ANALYSIS_INITIATED.log(log, request.s3Key());
+    // CORRECCIÓN 1
+    new CalculationLogEvent.AnalysisInitiated(request.s3Key()).log(log);
 
     return restClient.post()
         .uri("/calculate-ri")
@@ -100,22 +100,20 @@ public class PlumberAdapter implements AnalysisPort {
 
           if (res.getStatusCode().is2xxSuccessful()) {
             String successBody = new String(res.getBody().readAllBytes());
-            CalculationLogEvent.R_RESPONSE_RECEIVED.log(log, successBody);
+            // CORRECCIÓN 2
+            new CalculationLogEvent.RResponseReceived(successBody).log(log);
             return objectMapper.readValue(successBody, CalculationResponse.class);
           } else {
 
             String errorBody = new String(res.getBody().readAllBytes());
             String errorReason = extractErrorMessage(errorBody);
 
-            CalculationLogEvent.R_TECHNICAL_ERROR.log(log, res.getStatusCode() + " - " + errorReason);
+            // CORRECCIÓN 3
+            new CalculationLogEvent.RTechnicalError(res.getStatusCode() + " - " + errorReason).log(log);
 
-            // Retryable consequences:
-            // TECHNICAL DEBT
             if (res.getStatusCode().value() == 422) {
-              // Thrown immediately; the 'exclude' on @Retryable prevents further attempts.
               throw new DataInconsistencyException(errorReason);
             } else {
-              // Triggers Spring retry mechanism (up to 3 times)
               throw new EngineUnavailableException("R Error (" + res.getStatusCode() + "): " + errorReason);
             }
           }

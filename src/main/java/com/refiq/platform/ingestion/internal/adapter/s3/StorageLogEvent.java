@@ -1,42 +1,51 @@
 package com.refiq.platform.ingestion.internal.adapter.s3;
 
-import com.refiq.platform.shared.observability.Loggable;
+import org.slf4j.Logger;
 
 /**
  * Defines logging events specific to the persistence layer (S3).
  * <p>
  * Decouples infrastructure details from the core domain.
+ * Package-private visibility ensures these infrastructure logs cannot leak
+ * into the core services.
  * </p>
  */
-enum StorageLogEvent implements Loggable {
+sealed interface StorageLogEvent {
 
-  SINGLE_UPLOAD_SUCCESS(LogLevel.DEBUG, "Direct upload to S3 completed. Bucket: {}, Key: {}"),
+  record SingleUploadSuccess(String bucket, String key) implements StorageLogEvent {}
+  record MultipartInitiated(String uploadId) implements StorageLogEvent {}
+  record MultipartCompleted(String key) implements StorageLogEvent {}
+  record MultipartAborted(String key, String uploadId) implements StorageLogEvent {}
+  record AbortFailed(String errorDetails) implements StorageLogEvent {}
 
-  MULTIPART_INITIATED(LogLevel.DEBUG, "S3 Multipart transaction initiated. UploadId: {}"),
+  default void log(Logger logger) {
+    switch (this) {
+      case SingleUploadSuccess e -> logger.atDebug()
+          .setMessage("Direct upload to S3 completed")
+          .addKeyValue("bucket", e.bucket())
+          .addKeyValue("key", e.key())
+          .log();
 
-//  PART_UPLOADED(LogLevel.TRACE, "Part #{} uploaded to S3. Key: {}, ETag: {}"),
+      case MultipartInitiated e -> logger.atDebug()
+          .setMessage("S3 Multipart transaction initiated")
+          .addKeyValue("upload_id", e.uploadId())
+          .log();
 
-  MULTIPART_COMPLETED(LogLevel.INFO, "Multipart upload successfully completed. Key: {}"),
+      case MultipartCompleted e -> logger.atInfo()
+          .setMessage("Multipart upload successfully completed")
+          .addKeyValue("key", e.key())
+          .log();
 
-  MULTIPART_ABORTED(LogLevel.WARN, "Multipart upload aborted (Best Effort). Key: {}, ID: {}"),
+      case MultipartAborted e -> logger.atWarn()
+          .setMessage("Multipart upload aborted (Best Effort)")
+          .addKeyValue("key", e.key())
+          .addKeyValue("upload_id", e.uploadId())
+          .log();
 
-  ABORT_FAILED(LogLevel.ERROR, "Failed to abort the upload: {}");
-
-  private final LogLevel level;
-  private final String template;
-
-  StorageLogEvent(LogLevel level, String template) {
-    this.level = level;
-    this.template = template;
-  }
-
-  @Override
-  public LogLevel getLevel() {
-    return level;
-  }
-
-  @Override
-  public String getMessageTemplate() {
-    return template;
+      case AbortFailed e -> logger.atError()
+          .setMessage("Failed to abort the upload")
+          .addKeyValue("error_details", e.errorDetails())
+          .log();
+    }
   }
 }

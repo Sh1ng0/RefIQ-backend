@@ -6,6 +6,7 @@ import com.refiq.platform.ingestion.api.dto.Status;
 import com.refiq.platform.ingestion.api.event.FileAcceptedEvent;
 import com.refiq.platform.ingestion.api.event.IngestionFailedEvent;
 import com.refiq.platform.ingestion.internal.domain.IngestionFile;
+import com.refiq.platform.ingestion.internal.logging.IngestionLogEvent;
 import com.refiq.platform.ingestion.internal.port.StoragePort;
 
 import java.io.InputStream;
@@ -81,7 +82,8 @@ public class IngestionService {
     String targetKey = "1.Bronze/" + file.analyte().name() + "/" + file.analyte().name() + "_" + fileId + ".csv";
 
     eventPublisher.publishEvent(new FileAcceptedEvent(fileId, file.analyte().name()));
-    IngestionLogEvent.UPLOAD_INITIATED.log(log, file.filename(), file.analyte().name(), file.size());
+
+    new IngestionLogEvent.UploadInitiated(file.filename(), file.analyte().name(), file.size()).log(log);
 
     ingestionExecutor.submit(() -> processBronzeMultipart(file, fileId, targetKey));
 
@@ -110,7 +112,8 @@ public class IngestionService {
 
     try (InputStream is = file.openStream()) {
       uploadId = storagePort.initMultipartUpload(key, file.contentType(), metadata);
-      IngestionLogEvent.BRONZE_PROCESSING_STARTED.log(log, key);
+
+      new IngestionLogEvent.BronzeProcessingStarted(key).log(log);
 
       int partNumber = 1;
       byte[] chunkPayload;
@@ -127,12 +130,13 @@ public class IngestionService {
           .join();
 
       storagePort.completeMultipartUpload(key, uploadId, completedParts);
-      IngestionLogEvent.BRONZE_SUMMARY.log(log, fileId, partNumber - 1);
+
+      new IngestionLogEvent.BronzeSummary(fileId, partNumber - 1).log(log);
 
       triggerDataLakePipeline();
 
     } catch (Exception e) {
-      IngestionLogEvent.PIPELINE_ERROR.log(log, fileId, e.getMessage());
+      new IngestionLogEvent.PipelineError(fileId, e.getMessage()).log(log);
 
       // Publish the failure event (avoiding direct DB coupling)
       eventPublisher.publishEvent(new IngestionFailedEvent(fileId, "Error uploading to MinIO: " + e.getMessage()));
@@ -177,7 +181,7 @@ public class IngestionService {
         .whenComplete((res, ex) -> {
           uploadPermits.release();
           if (ex != null) {
-            IngestionLogEvent.MULTIPART_PART_FAILED.log(log, partNum, ex.getMessage());
+            new IngestionLogEvent.MultipartPartFailed(partNum, ex.getMessage()).log(log);
           }
         });
   }
@@ -191,9 +195,10 @@ public class IngestionService {
           .uri(dataLakeApiUrl + "/run-pipeline")
           .retrieve()
           .toBodilessEntity();
-      IngestionLogEvent.DATALAKE_TRIGGER_SENT.log(log);
+
+      new IngestionLogEvent.DataLakeTriggerSent().log(log);
     } catch (Exception e) {
-      IngestionLogEvent.DATALAKE_TRIGGER_FAILED.log(log, e.getMessage());
+      new IngestionLogEvent.DataLakeTriggerFailed(e.getMessage()).log(log);
     }
   }
 }

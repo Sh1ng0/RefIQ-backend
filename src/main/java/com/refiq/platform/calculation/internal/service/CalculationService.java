@@ -7,6 +7,8 @@ import com.refiq.platform.calculation.api.dto.CalculationResponse;
 import com.refiq.platform.calculation.api.dto.CalculationResult;
 import com.refiq.platform.calculation.internal.adapter.plumber.PlumberAdapter;
 import com.refiq.platform.calculation.internal.domain.CalculationState;
+import com.refiq.platform.calculation.internal.logging.CalculationLogEvent;
+import com.refiq.platform.calculation.internal.logging.CalculationTrackingLogEvent;
 import com.refiq.platform.calculation.internal.port.AnalysisPort;
 import com.refiq.platform.calculation.internal.repository.DbCalculationResultRepository;
 import java.util.Optional;
@@ -23,8 +25,8 @@ import java.util.regex.Pattern;
 /**
  * Orchestrates the core calculation workflow for clinical reference intervals.
  * <p>
- * Refactored to Data-Oriented Programming (DOP). Utilizes records and pattern matching
- * for immutable state transitions without relying on JPA entities.
+ * Refactored to Data-Oriented Programming (DOP). Utilizes records and pattern matching for
+ * immutable state transitions without relying on JPA entities.
  * </p>
  */
 @Service
@@ -33,7 +35,8 @@ public class CalculationService {
 
   private static final Logger log = LoggerFactory.getLogger(CalculationService.class);
 
-  private static final Pattern UUID_PATTERN = Pattern.compile("([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", Pattern.CASE_INSENSITIVE);
+  private static final Pattern UUID_PATTERN = Pattern.compile(
+      "([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", Pattern.CASE_INSENSITIVE);
 
   private final AnalysisPort analysisPort;
   private final DbCalculationResultRepository repository;
@@ -44,18 +47,18 @@ public class CalculationService {
    */
   public CalculationResult runAnalysis(CalculationRequest request) {
 
-    CalculationLogEvent.CALCULATION_STARTED.log(
-        log,
+    new CalculationLogEvent.CalculationStarted(
         request.s3Key(),
         request.percentileLow(),
         request.percentileHigh()
-    );
+    ).log(log);
 
     var fileIdOpt = extractUuidFromKey(request.s3Key());
 
     if (fileIdOpt.isEmpty()) {
-      CalculationLogEvent.CALCULATION_INVALID_REQUEST.log(log, request.s3Key());
-      return new CalculationResult.InvalidRequest("No valid UUID found in the S3 path: " + request.s3Key());
+      new CalculationLogEvent.CalculationInvalidRequest(request.s3Key()).log(log);
+      return new CalculationResult.InvalidRequest(
+          "No valid UUID found in the S3 path: " + request.s3Key());
     }
 
     UUID fileId = fileIdOpt.get();
@@ -70,7 +73,7 @@ public class CalculationService {
 
     try {
       CalculationResponse response = analysisPort.calculate(request);
-      CalculationLogEvent.CALCULATION_COMPLETED.log(log, request.s3Key());
+      new CalculationLogEvent.CalculationCompleted(request.s3Key()).log(log);
       finalResult = new CalculationResult.Success(response);
 
     } catch (PlumberAdapter.DataInconsistencyException e) {
@@ -80,7 +83,7 @@ public class CalculationService {
       finalResult = new CalculationResult.EngineUnavailable(e.getMessage());
 
     } catch (Exception e) {
-      CalculationLogEvent.PLUMBER_ERROR.log(log, e.getMessage());
+      new CalculationLogEvent.PlumberError(e.getMessage()).log(log);
 
       String debugMsg = (e.getCause() instanceof SocketTimeoutException)
           ? "Timeout waiting for response from the analysis engine."
@@ -108,14 +111,15 @@ public class CalculationService {
         case CalculationResult.Success success -> {
           try {
             String jsonPayload = objectMapper.writeValueAsString(success.response());
-            CalculationLogEvent.CALCULATION_RESULT_SAVED.log(log, fileId);
+            new CalculationLogEvent.CalculationResultSaved(fileId).log(log);
             yield new CalculationState.Success(fileId, jsonPayload);
           } catch (JsonProcessingException e) {
-            yield new CalculationState.Failed(fileId, "Error serializing JSON response: " + e.getMessage());
+            yield new CalculationState.Failed(fileId,
+                "Error serializing JSON response: " + e.getMessage());
           }
         }
         case CalculationResult.DataInconsistency error -> {
-          CalculationLogEvent.DATA_INCONSISTENCY_TRACKED.log(log, fileId, error.details());
+          new CalculationLogEvent.DataInconsistencyTracked(fileId, error.details()).log(log);
           yield new CalculationState.Failed(fileId, error.details());
         }
         case CalculationResult.EngineUnavailable error ->
@@ -124,15 +128,16 @@ public class CalculationService {
         case CalculationResult.InvalidRequest invalid ->
             new CalculationState.Failed(fileId, invalid.reason());
 
-        case CalculationResult.AlreadyHandled ignored ->
-            currentState;
+        case CalculationResult.AlreadyHandled ignored -> currentState;
       };
 
-      if (nextState instanceof CalculationState.Success || nextState instanceof CalculationState.Failed) {
+      if (nextState instanceof CalculationState.Success
+          || nextState instanceof CalculationState.Failed) {
         repository.update(nextState);
       }
 
-    }, () -> CalculationTrackingLogEvent.TRACKING_RECORD_NOT_FOUND.log(log, fileId));
+
+    }, () -> new CalculationTrackingLogEvent.TrackingRecordNotFound(fileId).log(log));
   }
 
   private Optional<UUID> extractUuidFromKey(String s3Key) {
@@ -154,7 +159,7 @@ public class CalculationService {
         })
         .orElse("NOT_FOUND");
 
-    CalculationTrackingLogEvent.TRACKING_ALREADY_HANDLED.log(log, fileId, status);
+    new CalculationTrackingLogEvent.TrackingAlreadyHandled(fileId, status).log(log);
 
     return new CalculationResult.AlreadyHandled(status);
   }

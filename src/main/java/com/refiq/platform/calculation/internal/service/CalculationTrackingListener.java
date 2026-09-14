@@ -1,6 +1,7 @@
 package com.refiq.platform.calculation.internal.service;
 
 import com.refiq.platform.calculation.internal.domain.CalculationState;
+import com.refiq.platform.calculation.internal.logging.CalculationTrackingLogEvent; // Import del paquete transversal
 import com.refiq.platform.calculation.internal.repository.DbCalculationResultRepository;
 import com.refiq.platform.ingestion.api.event.FileAcceptedEvent;
 import com.refiq.platform.ingestion.api.event.IngestionFailedEvent;
@@ -30,13 +31,13 @@ public class CalculationTrackingListener {
    */
   @ApplicationModuleListener
   void on(FileAcceptedEvent event) {
-    CalculationTrackingLogEvent.TRACKING_EVENT_RECEIVED.log(log, event.fileId());
+    new CalculationTrackingLogEvent.TrackingEventReceived(event.fileId()).log(log);
 
     var pendingState = new CalculationState.Pending(event.fileId());
 
     repository.insert(pendingState);
 
-    CalculationTrackingLogEvent.TRACKING_RECORD_CREATED.log(log, event.fileId());
+    new CalculationTrackingLogEvent.TrackingRecordCreated(event.fileId()).log(log);
   }
 
   /**
@@ -44,11 +45,17 @@ public class CalculationTrackingListener {
    */
   @ApplicationModuleListener
   void on(IngestionFailedEvent event) {
+    // CRÍTICA APLICADA: Añadido el log que faltaba para registrar la llegada del evento
+    new CalculationTrackingLogEvent.IngestionFailedEventReceived(event.fileId(), event.errorMessage()).log(log);
+
     repository.findById(event.fileId()).ifPresent(currentState -> {
 
       var failedState = new CalculationState.Failed(event.fileId(), event.errorMessage());
 
       repository.update(failedState);
+
+      // CRÍTICA APLICADA: Añadido el log confirmando la actualización
+      new CalculationTrackingLogEvent.TrackingRecordUpdatedToFailed(event.fileId()).log(log);
     });
   }
 }

@@ -2,11 +2,10 @@ package com.refiq.platform.calculation.api.web;
 
 import com.refiq.platform.calculation.api.dto.CalculationRequest;
 import com.refiq.platform.calculation.api.dto.CalculationResult;
-import com.refiq.platform.calculation.internal.service.CalculationLogEvent;
+import com.refiq.platform.calculation.internal.logging.CalculationLogEvent; // Añadido el import transversal
 import com.refiq.platform.calculation.internal.service.CalculationService;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -67,7 +66,7 @@ public class MinioWebhookController {
       String s3Key = record.s3().object().key();
 
       if (s3Key != null && s3Key.startsWith("3.Gold/")) {
-        CalculationLogEvent.MINIO_WEBHOOK_RECEIVED.log(log, s3Key);
+        new CalculationLogEvent.MinioWebhookReceived(s3Key).log(log);
 
         String testCode = extractAnalyteFromKey(s3Key);
 
@@ -97,22 +96,22 @@ public class MinioWebhookController {
 
       switch (result) {
         case CalculationResult.Success s ->
-            CalculationLogEvent.CALCULATION_SUCCESS.log(log, request.testCode(), s.response().labResult().referenceRange());
+            new CalculationLogEvent.CalculationSuccess(request.testCode(), s.response().labResult().referenceRange()).log(log);
 
         case CalculationResult.DataInconsistency di ->
-            CalculationLogEvent.CALCULATION_DATA_INCONSISTENCY.log(log, request.testCode(), di.details());
+            new CalculationLogEvent.CalculationDataInconsistency(request.testCode(), di.details()).log(log);
 
         case CalculationResult.EngineUnavailable eu ->
-            CalculationLogEvent.CALCULATION_ENGINE_UNAVAILABLE.log(log, request.testCode(), eu.debugInfo());
+            new CalculationLogEvent.CalculationEngineUnavailable(request.testCode(), eu.debugInfo()).log(log);
 
         case CalculationResult.InvalidRequest ir ->
-            CalculationLogEvent.CALCULATION_INVALID_REQUEST.log(log, ir.reason());
+            new CalculationLogEvent.CalculationInvalidRequest(request.s3Key()).log(log);
 
         case CalculationResult.AlreadyHandled ah ->
-            CalculationLogEvent.MINIO_WEBHOOK_DUPLICATE_IGNORED.log(log, request.testCode(), ah.status());
+            new CalculationLogEvent.MinioWebhookDuplicateIgnored(request.testCode(), ah.status()).log(log);
       }
     } catch (Exception e) {
-      CalculationLogEvent.MINIO_WEBHOOK_ERROR.log(log, e.getMessage());
+      new CalculationLogEvent.MinioWebhookError(e.getMessage()).log(log);
     }
   }
 
@@ -131,7 +130,7 @@ public class MinioWebhookController {
     try {
       return key.split("/")[1];
     } catch (Exception e) {
-      CalculationLogEvent.MINIO_WEBHOOK_PARSING_WARN.log(log, key);
+      new CalculationLogEvent.MinioWebhookParsingWarn(key).log(log);
       return "UNKNOWN";
     }
   }

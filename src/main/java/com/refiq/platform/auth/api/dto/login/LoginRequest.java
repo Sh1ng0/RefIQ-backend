@@ -1,4 +1,4 @@
-package com.refiq.platform.auth.api.dto;
+package com.refiq.platform.auth.api.dto.login;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;

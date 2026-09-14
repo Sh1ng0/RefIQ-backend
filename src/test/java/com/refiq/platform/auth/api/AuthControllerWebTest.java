@@ -10,12 +10,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.refiq.platform.auth.api.dto.LoginRequest;
-import com.refiq.platform.auth.api.dto.LoginResult;
-import com.refiq.platform.auth.api.dto.RegisterUserRequest;
-import com.refiq.platform.auth.api.dto.RegistrationResponse;
-import com.refiq.platform.auth.api.dto.RegistrationResult;
-import com.refiq.platform.auth.internal.security.AuthRateLimiter;
+import com.refiq.platform.auth.api.dto.login.LoginRequest;
+import com.refiq.platform.auth.api.dto.login.LoginResult;
+import com.refiq.platform.auth.api.dto.registration.RegisterUserRequest;
+import com.refiq.platform.auth.api.dto.registration.RegistrationResponse;
+import com.refiq.platform.auth.api.dto.registration.RegistrationResult;
 import com.refiq.platform.auth.internal.service.AuthService;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;

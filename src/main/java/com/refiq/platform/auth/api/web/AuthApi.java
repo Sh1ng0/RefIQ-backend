@@ -1,7 +1,7 @@
 package com.refiq.platform.auth.api.web;
 
-import com.refiq.platform.auth.api.dto.LoginRequest;
-import com.refiq.platform.auth.api.dto.RegisterUserRequest;
+import com.refiq.platform.auth.api.dto.login.LoginRequest;
+import com.refiq.platform.auth.api.dto.registration.RegisterUserRequest;
 import com.refiq.platform.auth.api.web.response.LoginWebResponse;
 import com.refiq.platform.auth.api.web.response.RegistrationWebResponse;
 import io.swagger.v3.oas.annotations.Operation;

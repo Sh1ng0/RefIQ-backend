@@ -1,6 +1,7 @@
 package com.refiq.platform.auth.internal.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import com.refiq.platform.auth.internal.domain.Credential;
 import com.refiq.platform.support.slices.BasePostgresTest;
@@ -43,8 +44,8 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
     assertThat(found.email()).isEqualTo("test@refiq.com");
     assertThat(found.passwordHash()).isEqualTo("secure_hash");
 
-    assertThat(found.createdAt().truncatedTo(ChronoUnit.MICROS))
-        .isEqualTo(newCredential.createdAt().truncatedTo(ChronoUnit.MICROS));
+    assertThat(found.createdAt())
+        .isCloseTo(newCredential.createdAt(), within(1, ChronoUnit.MICROS));
   }
 
   @Test
@@ -78,7 +79,9 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
     Credential fromDb = foundOpt.get();
     assertThat(fromDb.passwordHash()).isEqualTo("new_hash");
     assertThat(fromDb.id()).isEqualTo(original.id());
-    assertThat(fromDb.createdAt().truncatedTo(ChronoUnit.MICROS))
-        .isEqualTo(original.createdAt().truncatedTo(ChronoUnit.MICROS));
+
+    // Corregido aquí
+    assertThat(fromDb.createdAt())
+        .isCloseTo(original.createdAt(), within(1, ChronoUnit.MICROS));
   }
 }

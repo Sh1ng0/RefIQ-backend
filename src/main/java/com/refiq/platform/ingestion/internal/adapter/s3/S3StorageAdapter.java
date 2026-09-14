@@ -54,7 +54,7 @@ public class S3StorageAdapter implements StoragePort {
 
       String uploadId = s3Client.createMultipartUpload(request).uploadId();
 
-      StorageLogEvent.MULTIPART_INITIATED.log(log, uploadId);
+      new StorageLogEvent.MultipartInitiated(uploadId).log(log);
 
       return uploadId;
     } catch (Exception e) {
@@ -122,7 +122,7 @@ public class S3StorageAdapter implements StoragePort {
           .build();
 
       s3Client.completeMultipartUpload(request);
-      StorageLogEvent.MULTIPART_COMPLETED.log(log, key);
+      new StorageLogEvent.MultipartCompleted(key).log(log);
 
     } catch (Exception e) {
       throw new RuntimeException("Error completing multipart upload: " + e.getMessage(), e);
@@ -146,10 +146,10 @@ public class S3StorageAdapter implements StoragePort {
           .build();
 
       s3Client.abortMultipartUpload(request);
-      StorageLogEvent.MULTIPART_ABORTED.log(log, key, uploadId);
+      new StorageLogEvent.MultipartAborted(key, uploadId).log(log);
 
     } catch (Exception e) {
-      StorageLogEvent.ABORT_FAILED.log(log, e.getMessage());
+      new StorageLogEvent.AbortFailed(e.getMessage()).log(log);
     }
   }
 }
