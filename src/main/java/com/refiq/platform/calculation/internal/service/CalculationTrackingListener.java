@@ -45,7 +45,7 @@ public class CalculationTrackingListener {
    */
   @ApplicationModuleListener
   void on(IngestionFailedEvent event) {
-    // CRÍTICA APLICADA: Añadido el log que faltaba para registrar la llegada del evento
+
     new CalculationTrackingLogEvent.IngestionFailedEventReceived(event.fileId(), event.errorMessage()).log(log);
 
     repository.findById(event.fileId()).ifPresent(currentState -> {
@@ -54,7 +54,7 @@ public class CalculationTrackingListener {
 
       repository.update(failedState);
 
-      // CRÍTICA APLICADA: Añadido el log confirmando la actualización
+
       new CalculationTrackingLogEvent.TrackingRecordUpdatedToFailed(event.fileId()).log(log);
     });
   }

@@ -2,6 +2,7 @@ package com.refiq.platform.calculation.internal.service;
 
 import static com.refiq.platform.shared.db.generated.Tables.CALCULATION_RESULTS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -73,6 +74,44 @@ class CalculationServiceIntegrationTest extends BasePostgresTest {
           Optional<CalculationState> saved = repository.findById(fileId);
           assertThat(saved).isPresent();
           assertThat(saved.get()).isInstanceOf(CalculationState.Pending.class);
+        });
+  }
+
+  @Test
+  @DisplayName("Event Listener Idempotency: Should cleanly ignore duplicate FileAcceptedEvent deliveries")
+  void shouldHandleDuplicateEventsIdempotently() {
+    // GIVEN
+    UUID fileId = UUID.randomUUID();
+    FileAcceptedEvent event = new FileAcceptedEvent(fileId, "TSH");
+
+
+    trackingListener.on(event);
+
+
+    await()
+        .atMost(Duration.ofSeconds(3))
+        .pollInterval(Duration.ofMillis(100))
+        .untilAsserted(() -> {
+          Optional<CalculationState> firstPassOpt = repository.findById(fileId);
+          assertThat(firstPassOpt).isPresent();
+          assertThat(firstPassOpt.get()).isInstanceOf(CalculationState.Pending.class);
+        });
+
+    // WHEN
+
+    assertDoesNotThrow(() -> {
+      trackingListener.on(event);
+    });
+
+    // THEN
+
+    await()
+        .atMost(Duration.ofSeconds(3))
+        .pollInterval(Duration.ofMillis(100))
+        .untilAsserted(() -> {
+          Optional<CalculationState> secondPassOpt = repository.findById(fileId);
+          assertThat(secondPassOpt).isPresent();
+          assertThat(secondPassOpt.get()).isInstanceOf(CalculationState.Pending.class);
         });
   }
 

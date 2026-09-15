@@ -25,12 +25,18 @@ public class DbCalculationResultRepository {
   }
 
   /**
-   * Initializes the tracking flow by inserting the PENDING state.
+   * Idempotently initializes the tracking flow by inserting the PENDING state.
+   * <p>
+   * Uses ON CONFLICT DO NOTHING to guarantee safe retries (at-least-once delivery)
+   * when consuming domain events from the ingestion module.
+   * </p>
    */
   public void insert(CalculationState.Pending state) {
     dsl.insertInto(CALCULATION_RESULTS)
         .set(CALCULATION_RESULTS.ID, state.id())
         .set(CALCULATION_RESULTS.STATUS, "PENDING")
+        .onConflict(CALCULATION_RESULTS.ID)
+        .doNothing()
         .execute();
   }
 
