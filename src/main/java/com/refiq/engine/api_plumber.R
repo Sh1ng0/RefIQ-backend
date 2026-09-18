@@ -1,8 +1,7 @@
 library(refineR)
 library(plumber)
 library(jsonlite)
-library(arrow) # NUEVA DEPENDENCIA: Necesaria para leer Parquet
-
+library(arrow)
 #* @post /calculate-ri
 #* @param data_url URL de S3 (Presigned)
 #* @param p_low Percentil inferior
@@ -17,7 +16,6 @@ function(res, data_url, p_low = 0.025, p_high = 0.975, test_code = "UNKNOWN") {
     # 1. LECTURA SEGURA DEL PARQUET (Vía archivo temporal):
     # Usamos download.file a un temporal porque Arrow a veces requiere
     # compilaciones específicas de C++ para leer presigned URLs HTTP directamente.
-    # Esto es a prueba de balas.
     temp_file <- tempfile(fileext = ".parquet")
     dl_res <- try(download.file(url = data_url, destfile = temp_file, mode = "wb", quiet = TRUE), silent = TRUE)
 
@@ -37,8 +35,6 @@ function(res, data_url, p_low = 0.025, p_high = 0.975, test_code = "UNKNOWN") {
     }
 
     # 2. VALIDACIÓN Y ADAPTACIÓN DEL CONTRATO:
-    # El Data Lake genera la columna 'analyte_value', pero nosotros usábamos 'value'.
-    # Hacemos un alias al vuelo para mantener tu lógica core de R intacta.
     if ("analyte_value" %in% colnames(Data)) {
         Data$value <- Data$analyte_value
     }
@@ -58,7 +54,7 @@ function(res, data_url, p_low = 0.025, p_high = 0.975, test_code = "UNKNOWN") {
       return(list(error = paste("Datos insuficientes para RefineR. Válidos encontrados:", length(values))))
     }
 
-    # Detección de unidad: El Data Lake la llama 'analyte_UNIT', mantenemos 'unit' por retrocompatibilidad
+
     detected_unit <- "units"
     if ("analyte_UNIT" %in% colnames(Data)) {
        u_vals <- unique(Data$analyte_UNIT)

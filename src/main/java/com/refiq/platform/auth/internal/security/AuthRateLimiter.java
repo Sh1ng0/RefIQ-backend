@@ -44,7 +44,6 @@ public class AuthRateLimiter {
   /**
    * Limits registration attempts per IP address.
    * Allows 3 registrations every 1 hour (Adjustable based on needs).
-   *
    * @param ip The client's IP address.
    * @return true if the request is allowed, false if the limit has been reached.
    */

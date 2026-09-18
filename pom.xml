@@ -287,7 +287,7 @@
 
   <build>
     <plugins>
-      <!-- 1. El empaquetador de Spring Boot (Vital para el .jar final) -->
+      <!-- Spring boot-->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
@@ -301,7 +301,7 @@
         </configuration>
       </plugin>
 
-      <!-- 2. Flyway: Prepara el terreno en el contenedor efímero -->
+      <!-- 2. Flyway-->
       <plugin>
         <groupId>org.flywaydb</groupId>
         <artifactId>flyway-maven-plugin</artifactId>
@@ -324,7 +324,7 @@
 
       </plugin>
 
-      <!-- 3. jOOQ: Tu configuración actual (lee lo que Flyway acaba de crear) -->
+      <!-- jOOQ -->
       <plugin>
         <groupId>org.jooq</groupId>
         <artifactId>jooq-codegen-maven</artifactId>

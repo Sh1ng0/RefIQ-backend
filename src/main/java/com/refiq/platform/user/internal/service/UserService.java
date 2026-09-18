@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
 
 /**
  * Core service responsible for managing the read and write operations of the User module.
@@ -56,7 +56,7 @@ public class UserService {
    * @param userId The UUID of the authenticated user.
    * @return An Optional containing the UserProfileResponse if found, or empty otherwise.
    */
-  @Transactional(readOnly = true)
+
   public Optional<UserProfileResponse> getProfile(UUID userId) {
     return profileRepository.findById(userId)
         .map(profile -> {

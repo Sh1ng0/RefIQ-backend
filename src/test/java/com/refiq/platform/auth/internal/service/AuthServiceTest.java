@@ -28,6 +28,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AuthService - Unit Tests")
@@ -48,6 +50,9 @@ class AuthServiceTest {
   @Mock
   private ApplicationEventPublisher eventPublisher;
 
+  @Mock
+  private TransactionTemplate transactionTemplate;
+
   @InjectMocks
   private AuthService authService;
 
@@ -65,7 +70,7 @@ class AuthServiceTest {
 
     // THEN
     assertThat(result).isInstanceOf(RegistrationResult.TooManyRequests.class);
-    // Verificamos el nuevo método tryInsert
+    verify(transactionTemplate, never()).execute(any());
     verify(credentialRepository, never()).tryInsert(any());
     verify(eventPublisher, never()).publishEvent(any());
   }
@@ -76,9 +81,14 @@ class AuthServiceTest {
     // GIVEN
     RegisterUserRequest request = new RegisterUserRequest("Test Org", "test@refiq.com", "Password123!");
     when(authRateLimiter.tryConsumeRegister(TEST_IP)).thenReturn(true);
-    // Mockeamos el encoder porque ahora el dominio se construye antes del chequeo
     when(passwordEncoder.encode("Password123!")).thenReturn("hashed_password");
-    // Simulamos la colisión en la base de datos
+
+    // Instruimos al mock para que ejecute la lambda del TransactionTemplate
+    when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+      TransactionCallback<RegistrationResult> callback = invocation.getArgument(0);
+      return callback.doInTransaction(null);
+    });
+
     when(credentialRepository.tryInsert(any(Credential.class))).thenReturn(false);
 
     // WHEN
@@ -97,6 +107,13 @@ class AuthServiceTest {
 
     when(authRateLimiter.tryConsumeRegister(TEST_IP)).thenReturn(true);
     when(passwordEncoder.encode("Password123!")).thenReturn("hashed_password");
+
+    // Instruimos al mock para que ejecute la lambda del TransactionTemplate
+    when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+      TransactionCallback<RegistrationResult> callback = invocation.getArgument(0);
+      return callback.doInTransaction(null);
+    });
+
     when(credentialRepository.tryInsert(any(Credential.class))).thenReturn(true);
 
     // WHEN
