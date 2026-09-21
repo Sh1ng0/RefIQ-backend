@@ -56,7 +56,6 @@ public class UserService {
    * @param userId The UUID of the authenticated user.
    * @return An Optional containing the UserProfileResponse if found, or empty otherwise.
    */
-
   public Optional<UserProfileResponse> getProfile(UUID userId) {
     return profileRepository.findById(userId)
         .map(profile -> {
