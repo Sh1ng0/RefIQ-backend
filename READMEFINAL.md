@@ -15,7 +15,7 @@ The platform is built on Java 21 and relies on a set of tools focused on robustn
 
 - **Core & Structure:** Spring Boot 3.4.12 and Spring Modulith 1.3.1. Spring Modulith provides the infrastructure to verify context separation and manage domain event publication internally. Lombok is included optionally to reduce boilerplate code.
 
-- **Data Persistence:** The chosen relational database is PostgreSQL. Schema versioning is managed with Flyway. For data access, jOOQ is used. The Maven configuration file orchestrates the `generate-sources` phase to run Flyway against an ephemeral database and then statically generate jOOQ records and classes.
+- **Data Persistence:** The chosen relational database is PostgreSQL. Schema versioning is managed with Flyway, and strongly typed data access is handled through jOOQ. To decouple code generation from the standard packaging, the creation of jOOQ classes and records is managed on demand using a dedicated Maven profile and the docker-compose.codegen
 
 - **Storage (S3/MinIO):** File handling is done through AWS SDK v2. The `s3`, `s3-presigner`, and `aws-crt-client` modules are included, the latter optimized for performance in asynchronous data transfers.
 
