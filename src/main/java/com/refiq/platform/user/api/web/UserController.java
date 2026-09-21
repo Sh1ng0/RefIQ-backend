@@ -2,9 +2,7 @@ package com.refiq.platform.user.api.web;
 
 import com.refiq.platform.user.api.dto.UserProfileResponse;
 import com.refiq.platform.user.internal.service.UserService;
-
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,10 +14,13 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/users")
-@RequiredArgsConstructor
 public class UserController implements UserApi {
 
   private final UserService userService;
+
+  public UserController(UserService userService) {
+    this.userService = userService;
+  }
 
   /**
    * Retrieves the authenticated user's profile data.
@@ -28,7 +29,8 @@ public class UserController implements UserApi {
    * </p>
    *
    * @param userId The UUID of the user, injected by Spring Security.
-   * @return A {@link ResponseEntity} containing the profile data (200 OK) or a 404 Not Found if it does not exist.
+   * @return A {@link ResponseEntity} containing the profile data (200 OK) or a 404 Not Found if it
+   * does not exist.
    */
   @Override
   @GetMapping("/profile")

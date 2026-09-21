@@ -11,34 +11,39 @@ import com.refiq.platform.shared.web.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Manages user authentication and registration HTTP requests.
  * <p>
- * Serves as the public entry point for account creation and session initialization
- * within the platform. Relies on the {@link AuthService} for business logic execution.
+ * Serves as the public entry point for account creation and session initialization within the
+ * platform. Relies on the {@link AuthService} for business logic execution.
  * </p>
  */
 @RestController
 @RequestMapping("/api")
-@RequiredArgsConstructor
 public class AuthController implements AuthApi {
 
   private final AuthService authService;
 
+  public AuthController(AuthService authService) {
+    this.authService = authService;
+  }
+
   /**
    * Registers a new user in the platform.
    * <p>
-   * Processes the validated JSON request, delegates to the service layer, and maps the
-   * resulting sealed business state to the appropriate HTTP response using pattern matching.
+   * Processes the validated JSON request, delegates to the service layer, and maps the resulting
+   * sealed business state to the appropriate HTTP response using pattern matching.
    * </p>
    *
-   * @param request The DTO containing the user's email and password.
+   * @param request     The DTO containing the user's email and password.
    * @param httpRequest The underlying HTTP request, used to extract the client IP.
    * @return A {@link ResponseEntity} containing the operation result or a conflict error message.
    */
@@ -61,11 +66,10 @@ public class AuthController implements AuthApi {
       case RegistrationResult.Success s ->
           ResponseEntity.ok(new RegistrationWebResponse.Success(s.response()));
 
-      case RegistrationResult.EmailAlreadyExists e ->
-          ResponseEntity.status(HttpStatus.CONFLICT)
-              .body(new RegistrationWebResponse.Failure(
-                  new ApiError("The email " + e.email() + " is already registered.")
-              ));
+      case RegistrationResult.EmailAlreadyExists e -> ResponseEntity.status(HttpStatus.CONFLICT)
+          .body(new RegistrationWebResponse.Failure(
+              new ApiError("The email " + e.email() + " is already registered.")
+          ));
 
       case RegistrationResult.TooManyRequests tmr ->
           ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
@@ -78,8 +82,8 @@ public class AuthController implements AuthApi {
   /**
    * Authenticates a user and issues a JWT if the provided credentials are valid.
    * <p>
-   * Delegates authentication to the service layer and maps the exhaustive business
-   * result to the appropriate HTTP response using pattern matching.
+   * Delegates authentication to the service layer and maps the exhaustive business result to the
+   * appropriate HTTP response using pattern matching.
    * </p>
    *
    * @param request The DTO containing the user's email and password.
@@ -91,31 +95,29 @@ public class AuthController implements AuthApi {
     LoginResult result = authService.login(request);
 
     return switch (result) {
-      case LoginResult.Success s ->
-          ResponseEntity.ok(new LoginWebResponse.Success(s.response()));
+      case LoginResult.Success s -> ResponseEntity.ok(new LoginWebResponse.Success(s.response()));
 
-      case LoginResult.InvalidCredentials e ->
-          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-              .body(new LoginWebResponse.Failure(
-                  new ApiError("Invalid credentials. Please check your email and password.")
-              ));
+      case LoginResult.InvalidCredentials e -> ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(new LoginWebResponse.Failure(
+              new ApiError("Invalid credentials. Please check your email and password.")
+          ));
 
-      case LoginResult.TooManyRequests tmr ->
-          ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-              .body(new LoginWebResponse.Failure(
-                  new ApiError("You have exceeded the maximum allowed login attempts.")
-              ));
+      case LoginResult.TooManyRequests tmr -> ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+          .body(new LoginWebResponse.Failure(
+              new ApiError("You have exceeded the maximum allowed login attempts.")
+          ));
     };
   }
 
   /**
    * Logs out the authenticated user.
    * <p>
-   * Due to the stateless architecture, this endpoint primarily serves to record an audit
-   * log of the voluntary logout event.
+   * Due to the stateless architecture, this endpoint primarily serves to record an audit log of the
+   * voluntary logout event.
    * </p>
    *
-   * @param authentication The current Spring Security authentication token containing the user's UUID.
+   * @param authentication The current Spring Security authentication token containing the user's
+   *                       UUID.
    * @return A 200 OK empty response.
    */
   @PostMapping("/logout")

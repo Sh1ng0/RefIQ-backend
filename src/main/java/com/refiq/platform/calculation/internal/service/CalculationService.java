@@ -11,16 +11,14 @@ import com.refiq.platform.calculation.internal.logging.CalculationLogEvent;
 import com.refiq.platform.calculation.internal.logging.CalculationTrackingLogEvent;
 import com.refiq.platform.calculation.internal.port.AnalysisPort;
 import com.refiq.platform.calculation.internal.repository.DbCalculationResultRepository;
-import java.util.Optional;
-import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
 import java.net.SocketTimeoutException;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 /**
  * Orchestrates the core calculation workflow for clinical reference intervals.
@@ -30,7 +28,6 @@ import java.util.regex.Pattern;
  * </p>
  */
 @Service
-@RequiredArgsConstructor
 public class CalculationService {
 
   private static final Logger log = LoggerFactory.getLogger(CalculationService.class);
@@ -41,6 +38,13 @@ public class CalculationService {
   private final AnalysisPort analysisPort;
   private final DbCalculationResultRepository repository;
   private final ObjectMapper objectMapper;
+
+  public CalculationService(AnalysisPort analysisPort, DbCalculationResultRepository repository,
+      ObjectMapper objectMapper) {
+    this.analysisPort = analysisPort;
+    this.repository = repository;
+    this.objectMapper = objectMapper;
+  }
 
   /**
    * Triggers the analysis process for a given request triggered by a Data Lake webhook.

@@ -13,7 +13,6 @@ import com.refiq.platform.auth.internal.repository.DbCredentialRepository;
 import com.refiq.platform.auth.internal.security.AuthRateLimiter;
 import com.refiq.platform.auth.internal.security.JwtProvider;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -43,7 +42,6 @@ import org.springframework.transaction.support.TransactionTemplate;
  * </p>
  */
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
   private static final Logger log = LoggerFactory.getLogger(AuthService.class);
@@ -56,6 +54,17 @@ public class AuthService {
 
 
   private final TransactionTemplate transactionTemplate;
+
+  public AuthService(DbCredentialRepository credentialRepository, PasswordEncoder passwordEncoder,
+      JwtProvider jwtProvider, AuthRateLimiter authRateLimiter,
+      ApplicationEventPublisher eventPublisher, TransactionTemplate transactionTemplate) {
+    this.credentialRepository = credentialRepository;
+    this.passwordEncoder = passwordEncoder;
+    this.jwtProvider = jwtProvider;
+    this.authRateLimiter = authRateLimiter;
+    this.eventPublisher = eventPublisher;
+    this.transactionTemplate = transactionTemplate;
+  }
 
 
   /**
