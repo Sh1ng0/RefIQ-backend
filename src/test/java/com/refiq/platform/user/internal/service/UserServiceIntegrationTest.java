@@ -92,6 +92,35 @@ class UserServiceIntegrationTest extends BasePostgresTest {
     assertThat(response.get().joinedAt()).isNotNull();
   }
 
+  @Test
+  @DisplayName("Event Listener Idempotency: Should cleanly ignore duplicate UserRegisteredEvent deliveries")
+  void shouldHandleDuplicateEventsIdempotently() {
+    // GIVEN
+    UUID accountId = UUID.randomUUID();
+    insertDummyCredential(accountId, "retry@test.com");
+    var event = new UserRegisteredEvent(accountId, "Idempotent Lab", "retry@test.com");
+
+
+    userService.on(event);
+
+
+    Optional<UserProfileResponse> firstPassOpt = userService.getProfile(accountId);
+    assertThat(firstPassOpt).isPresent();
+    assertThat(firstPassOpt.get().name()).isEqualTo("Idempotent Lab");
+
+    // WHEN
+
+    org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> {
+      userService.on(event);
+    });
+
+    // THEN
+
+    Optional<UserProfileResponse> secondPassOpt = userService.getProfile(accountId);
+    assertThat(secondPassOpt).isPresent();
+    assertThat(secondPassOpt.get().name()).isEqualTo("Idempotent Lab");
+  }
+
   /**
    * Helper to inject raw infrastructure.
    * <p>
@@ -107,4 +136,7 @@ class UserServiceIntegrationTest extends BasePostgresTest {
         .set(REFIQ_CREDENTIALS.CREATED_AT, Instant.now().atOffset(ZoneOffset.UTC))
         .execute();
   }
+
+
+
 }

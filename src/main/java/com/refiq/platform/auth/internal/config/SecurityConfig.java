@@ -3,7 +3,6 @@ package com.refiq.platform.auth.internal.config;
 import com.refiq.platform.auth.internal.security.JwtAuthenticationFilter;
 import com.refiq.platform.auth.internal.security.WebhookApiKeyFilter;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,15 +19,16 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Configures the application's security filter chain and cross-origin resource sharing (CORS) policies.
+ * Configures the application's security filter chain and cross-origin resource sharing (CORS)
+ * policies.
  * <p>
  * Establishes a stateless security context, disabling sessions and CSRF protection in favor of
- * token-based authentication. Registers the necessary filters for JWT validation and webhook API key verification.
+ * token-based authentication. Registers the necessary filters for JWT validation and webhook API
+ * key verification.
  * </p>
  */
 @Configuration
 @EnableWebSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -36,6 +36,12 @@ public class SecurityConfig {
 
   @Value("${refiq.security.cors.allowed-origins}")
   private List<String> allowedOrigins;
+
+  public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+      WebhookApiKeyFilter webhookApiKeyFilter) {
+    this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    this.webhookApiKeyFilter = webhookApiKeyFilter;
+  }
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -66,7 +72,8 @@ public class SecurityConfig {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(allowedOrigins);
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-    configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-RefIQ-Webhook-Token"));
+    configuration.setAllowedHeaders(
+        List.of("Authorization", "Content-Type", "X-Requested-With", "X-RefIQ-Webhook-Token"));
     configuration.setAllowCredentials(true);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

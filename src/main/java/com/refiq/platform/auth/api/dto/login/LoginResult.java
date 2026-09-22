@@ -16,24 +16,28 @@ public sealed interface LoginResult {
    * @param response The DTO containing the issued JWT and token details.
    */
   record Success(LoginResponse response) implements LoginResult {
+
   }
 
   /**
    * Represents a generic authentication failure.
    * <p>
-   * For security reasons (specifically to mitigate user enumeration attacks),
-   * this result intentionally obscures whether the failure was due to an
-   * unknown email or an incorrect password.
+   * For security reasons (specifically to mitigate user enumeration attacks), this result
+   * intentionally obscures whether the failure was due to an unknown email or an incorrect
+   * password.
    * </p>
    */
   record InvalidCredentials() implements LoginResult {
+
   }
 
   /**
    * Represents a temporary block due to rate limiting, designed to thwart brute-force attacks.
    *
-   * @param message A message indicating that the maximum number of login attempts has been exceeded.
+   * @param message A message indicating that the maximum number of login attempts has been
+   *                exceeded.
    */
   record TooManyRequests(String message) implements LoginResult {
+
   }
 }

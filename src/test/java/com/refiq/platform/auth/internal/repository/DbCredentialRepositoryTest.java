@@ -7,7 +7,6 @@ import com.refiq.platform.auth.internal.domain.Credential;
 import com.refiq.platform.support.slices.BasePostgresTest;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,16 +26,17 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
   private DbCredentialRepository credentialRepository;
 
   @Test
-  @DisplayName("Should insert an immutable credential and retrieve it accurately")
+  @DisplayName("Should cleanly insert a new credential and retrieve it accurately")
   void shouldInsertAndFindCredential() {
     // GIVEN
     Credential newCredential = Credential.createNew("test@refiq.com", "secure_hash");
 
     // WHEN
-    credentialRepository.insert(newCredential);
+    boolean isInserted = credentialRepository.tryInsert(newCredential);
     Optional<Credential> foundOpt = credentialRepository.findByEmail("test@refiq.com");
 
     // THEN
+    assertThat(isInserted).isTrue(); // Validamos el contrato DOP
     assertThat(foundOpt).isPresent();
 
     Credential found = foundOpt.get();
@@ -49,15 +49,24 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
   }
 
   @Test
-  @DisplayName("existsByEmail should return true if it exists, false otherwise")
-  void shouldReturnExistsCorrectly() {
+  @DisplayName("tryInsert should return false without throwing exceptions on duplicate email")
+  void shouldReturnFalseOnDuplicateEmail() {
     // GIVEN
-    Credential credential = Credential.createNew("exists@refiq.com", "hash");
-    credentialRepository.insert(credential);
+    Credential firstCredential = Credential.createNew("collision@refiq.com", "hash_1");
+    credentialRepository.tryInsert(firstCredential);
 
-    // WHEN / THEN
-    assertThat(credentialRepository.existsByEmail("exists@refiq.com")).isTrue();
-    assertThat(credentialRepository.existsByEmail("phantom@refiq.com")).isFalse();
+    // WHEN
+    Credential secondCredential = Credential.createNew("collision@refiq.com", "hash_2");
+    // Aquí es donde jOOQ y Postgres absorben el impacto gracias al ON CONFLICT DO NOTHING
+    boolean isInserted = credentialRepository.tryInsert(secondCredential);
+
+    // THEN
+    assertThat(isInserted).isFalse(); // El flujo de control sigue intacto, devolvemos un dato
+
+    // Verificamos que los datos del primer insert se mantuvieron inmutables en la BD
+    Optional<Credential> foundOpt = credentialRepository.findByEmail("collision@refiq.com");
+    assertThat(foundOpt).isPresent();
+    assertThat(foundOpt.get().passwordHash()).isEqualTo("hash_1");
   }
 
   @Test
@@ -65,7 +74,7 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
   void shouldUpdatePassword() {
     // GIVEN
     Credential original = Credential.createNew("update@refiq.com", "old_hash");
-    credentialRepository.insert(original);
+    credentialRepository.tryInsert(original);
 
     Credential updatedState = original.updatePassword("new_hash");
 
@@ -80,7 +89,6 @@ class DbCredentialRepositoryTest extends BasePostgresTest {
     assertThat(fromDb.passwordHash()).isEqualTo("new_hash");
     assertThat(fromDb.id()).isEqualTo(original.id());
 
-    // Corregido aquí
     assertThat(fromDb.createdAt())
         .isCloseTo(original.createdAt(), within(1, ChronoUnit.MICROS));
   }

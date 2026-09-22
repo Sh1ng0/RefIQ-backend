@@ -4,8 +4,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
+
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -17,19 +17,22 @@ import java.util.Collections;
 /**
  * Core security filter that intercepts incoming HTTP requests to validate JSON Web Tokens (JWT).
  * <p>
- * This filter extracts the token from the {@code Authorization} header using the Bearer schema
- * and delegates its validation to the {@link JwtProvider}. If the token is valid, it extracts
- * the user's UUID and populates the {@link org.springframework.security.core.context.SecurityContextHolder},
- * authorizing the request to proceed. If the token is missing or invalid, the security context
- * remains empty, delegating the rejection to the Spring Security chain.
+ * This filter extracts the token from the {@code Authorization} header using the Bearer schema and
+ * delegates its validation to the {@link JwtProvider}. If the token is valid, it extracts the
+ * user's UUID and populates the
+ * {@link org.springframework.security.core.context.SecurityContextHolder}, authorizing the request
+ * to proceed. If the token is missing or invalid, the security context remains empty, delegating
+ * the rejection to the Spring Security chain.
  * </p>
  */
 @Component
-@RequiredArgsConstructor
-
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
   private final JwtProvider jwtProvider;
+
+  public JwtAuthenticationFilter(JwtProvider jwtProvider) {
+    this.jwtProvider = jwtProvider;
+  }
 
   @Override
   protected void doFilterInternal(HttpServletRequest request,

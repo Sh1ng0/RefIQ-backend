@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -32,31 +31,32 @@ import org.springframework.web.multipart.MultipartFile;
  * </p>
  */
 @RestController
-@RequiredArgsConstructor
 public class IngestionController implements IngestionApi {
 
   private static final Logger log = LoggerFactory.getLogger(IngestionController.class);
 
   private final IngestionService ingestionService;
 
+  public IngestionController(IngestionService ingestionService) {
+    this.ingestionService = ingestionService;
+  }
+
   @Override
   public ResponseEntity<IngestionWebResponse> upload(MultipartFile file, String analyteStr) {
 
- 
     if (file.isEmpty()) {
       return ResponseEntity.badRequest()
           .body(new IngestionWebResponse.Failure(new ApiError("The file is empty.")));
     }
 
-
     var analyteOpt = Analyte.fromString(analyteStr);
     if (analyteOpt.isEmpty()) {
       return ResponseEntity.badRequest()
-          .body(new IngestionWebResponse.Failure(new ApiError("Unsupported analyte: " + analyteStr)));
+          .body(
+              new IngestionWebResponse.Failure(new ApiError("Unsupported analyte: " + analyteStr)));
     }
 
     IngestionFile domainFile = mapToSafeDomainFile(file, analyteOpt.get());
-
 
     IngestionResult result = ingestionService.ingest(domainFile);
 
@@ -76,8 +76,8 @@ public class IngestionController implements IngestionApi {
    * temporary physical file to avoid "Stream Closed" errors.
    * </p>
    * <p>
-   * A cleanup callback is injected so the Service can delete this temporary file once the
-   * transfer to the Data Lake ends.
+   * A cleanup callback is injected so the Service can delete this temporary file once the transfer
+   * to the Data Lake ends.
    * </p>
    *
    * @param file    The original multipart file.

@@ -3,7 +3,6 @@ package com.refiq.platform.ingestion.internal.adapter.s3;
 import com.refiq.platform.ingestion.internal.port.StoragePort;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,14 +19,13 @@ import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 /**
  * Secondary adapter implementing file persistence using AWS S3.
  * <p>
- * Fulfills the {@link StoragePort} contract, handling low-level interactions with the S3
- * SDK, resource management (stream closing), and multipart upload orchestration.
- * Since MinIO implements the same standard as AWS S3, this adapter is fully compatible
- * with MinIO environments without modification.
+ * Fulfills the {@link StoragePort} contract, handling low-level interactions with the S3 SDK,
+ * resource management (stream closing), and multipart upload orchestration. Since MinIO implements
+ * the same standard as AWS S3, this adapter is fully compatible with MinIO environments without
+ * modification.
  * </p>
  */
 @Component
-@RequiredArgsConstructor
 public class S3StorageAdapter implements StoragePort {
 
   private static final Logger log = LoggerFactory.getLogger(S3StorageAdapter.class);
@@ -36,6 +34,10 @@ public class S3StorageAdapter implements StoragePort {
 
   @Value("${refiq.storage.s3.bucket-name}")
   private String bucketName;
+
+  public S3StorageAdapter(S3Client s3Client) {
+    this.s3Client = s3Client;
+  }
 
   // --- Multipart Methods (Streaming) ---
 
