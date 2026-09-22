@@ -1,14 +1,14 @@
 name: RefIQ CI/CD Pipeline
 
-# El robot se despertará cada vez que haya un push (o un merge de una PR) a la rama 'main'
+
 on:
   push:
     branches:
-      - main # Si tu rama principal se llama 'master', cámbialo aquí
+      - main
 
 env:
   REGISTRY: ghcr.io
-  # GitHub inyecta tu usuario automáticamente en 'repository_owner'
+
   IMAGE_NAME_APP: ${{ github.repository_owner }}/refiq-app
   IMAGE_NAME_ENGINE: ${{ github.repository_owner }}/refiq-engine
 
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # Permiso necesario para subir imágenes a GHCR
+      packages: write
 
     steps:
       - name: Checkout del código
@@ -31,10 +31,10 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: maven # Esto acelera muchísimo los despliegues guardando dependencias
+          cache: maven
 
       - name: Compilar con Maven
-        # Usamos -DskipTests para ir rápido en el MVP. Si tienes tests unitarios, quita esa flag.
+
         run: mvn clean package -DskipTests
 
       - name: Login en GitHub Container Registry
@@ -42,7 +42,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          # GITHUB_TOKEN es mágico, GitHub lo crea temporalmente en cada ejecución
+
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Construir y subir imagen (Spring Boot)
@@ -63,7 +63,7 @@ jobs:
   # FASE 3: Despliegue en el VPS de Ionos
   # ==========================================
   deploy:
-    needs: build-and-push # Espera a que termine la compilación para ejecutarse
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Conectar por SSH y actualizar el servidor
