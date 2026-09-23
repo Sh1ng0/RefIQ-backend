@@ -175,12 +175,6 @@ These files spin up the complete infrastructure required to run the platform loc
 - The local environment is fed by the credentials from your `.env` file.
 - The dev environment has its environment variables explicitly injected (hardcoded) in the manifest itself, ideal for quick tests without configuring secrets.
 
-To spin up the local environment interacting with the `.env` file, run:
-
-```bash
-docker compose -f docker-compose.local.yml up -d
-
-### jOOQ Class Generation (Codegen)
 
 This process uses an ephemeral, isolated database (`refiq_build_db`) exposed on port 5433. Its sole purpose is to apply the Flyway schema in a clean environment so that jOOQ can generate the persistence code; the container does not interact with development, testing, or production data.
 
