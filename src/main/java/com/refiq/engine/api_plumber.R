@@ -2,58 +2,53 @@ library(refineR)
 library(plumber)
 library(jsonlite)
 library(arrow)
+
 #* @post /calculate-ri
-#* @param data_url URL de S3 (Presigned)
-#* @param p_low Percentil inferior
-#* @param p_high Percentil superior
-#* @param test_code Código opcional para trazabilidad (Default: UNKNOWN)
+#* @param data_url S3 URL (Presigned)
+#* @param p_low Lower percentile
+#* @param p_high Upper percentile
+#* @param test_code Optional traceability code (Default: UNKNOWN)
 function(res, data_url, p_low = 0.025, p_high = 0.975, test_code = "UNKNOWN") {
 
   message(paste("[START] Processing request for:", test_code, "| URL:", data_url))
 
   tryCatch({
 
-    # 1. LECTURA SEGURA DEL PARQUET (Vía archivo temporal):
-    # Usamos download.file a un temporal porque Arrow a veces requiere
-    # compilaciones específicas de C++ para leer presigned URLs HTTP directamente.
     temp_file <- tempfile(fileext = ".parquet")
     dl_res <- try(download.file(url = data_url, destfile = temp_file, mode = "wb", quiet = TRUE), silent = TRUE)
 
     if (inherits(dl_res, "try-error") || dl_res != 0) {
-        message("[ERROR] Fallo Red: No se pudo descargar el archivo desde S3.")
+        message("[ERROR] Network Failure: Could not download the file from S3.")
         res$status <- 400
-        return(list(error = "No se pudo descargar el archivo Parquet. Verifique URL o expiración."))
+        return(list(error = "Could not download the Parquet file. Check URL or expiration."))
     }
 
     Data <- try(arrow::read_parquet(temp_file), silent = TRUE)
-    unlink(temp_file) # Limpiamos el disco inmediatamente
+    unlink(temp_file)
 
     if (inherits(Data, "try-error")) {
-        message(paste("[ERROR] Fallo IO:", attr(Data, "condition")$message))
+        message(paste("[ERROR] IO Failure:", attr(Data, "condition")$message))
         res$status <- 400
-        return(list(error = "No se pudo leer el Parquet. Verifique que el archivo no esté corrupto."))
+        return(list(error = "Could not read the Parquet file. Ensure the file is not corrupted."))
     }
 
-    # 2. VALIDACIÓN Y ADAPTACIÓN DEL CONTRATO:
     if ("analyte_value" %in% colnames(Data)) {
         Data$value <- Data$analyte_value
     }
 
     if (!"value" %in% colnames(Data)) {
-        message("[ERROR] Contrato roto: No se encuentra la columna 'analyte_value' o 'value'.")
+        message("[ERROR] Broken contract: 'analyte_value' or 'value' column not found.")
         res$status <- 422
-        return(list(error = "El Parquet Gold no cumple el contrato: Falta columna 'analyte_value'."))
+        return(list(error = "The Gold Parquet does not fulfill the contract: Missing 'analyte_value' column."))
     }
 
-    # 3. EXTRACCIÓN Y LIMPIEZA:
     values <- as.numeric(Data$value)
     values <- values[!is.na(values)]
 
     if (length(values) < 10) {
       res$status <- 422
-      return(list(error = paste("Datos insuficientes para RefineR. Válidos encontrados:", length(values))))
+      return(list(error = paste("Insufficient data for RefineR. Valid values found:", length(values))))
     }
-
 
     detected_unit <- "units"
     if ("analyte_UNIT" %in% colnames(Data)) {
@@ -66,7 +61,6 @@ function(res, data_url, p_low = 0.025, p_high = 0.975, test_code = "UNKNOWN") {
        if (length(u_vals) > 0) detected_unit <- u_vals[1]
     }
 
-    # --- LÓGICA CORE DE REFINER ---
     calculated_value <- NULL
     ref_range_str <- NULL
 
@@ -82,20 +76,19 @@ function(res, data_url, p_low = 0.025, p_high = 0.975, test_code = "UNKNOWN") {
              ref_range_str <- paste(round(ris$PointEst, 2), collapse = " - ")
         }
     } else {
-         message(paste("[WARN] RefineR findRI falló:", attr(fit, "condition")$message))
+         message(paste("[WARN] RefineR findRI failed:", attr(fit, "condition")$message))
     }
 
-    # 4. RESPUESTA
-    note_message <- "No se pudo calcular nada"
+    note_message <- "Could not calculate anything"
 
     if (!is.null(ref_range_str)) {
         if (!is.null(calculated_value)) {
-            note_message <- "Cálculo exitoso"
+            note_message <- "Successful calculation"
         } else {
-            note_message <- "Cálculo parcial (Rango OK, sin valor estimado)"
+            note_message <- "Partial calculation (Range OK, no estimated value)"
         }
     } else {
-        note_message <- "Cálculo no convergió (Datos muy dispersos o distribución atípica)"
+        note_message <- "Calculation did not converge (Highly dispersed data or atypical distribution)"
     }
 
     return(list(
@@ -117,7 +110,7 @@ function(res, data_url, p_low = 0.025, p_high = 0.975, test_code = "UNKNOWN") {
   }, error = function(e) {
     message(paste("CRITICAL ERROR:", e$message))
     res$status <- 500
-    return(list(error = paste("Error interno R:", e$message)))
+    return(list(error = paste("Internal R error:", e$message)))
   })
 }
 
